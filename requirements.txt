@@ -1,0 +1,6 @@
+numpy>=2.4
+pandas>=3.0
+matplotlib>=3.10
+scipy>=1.17
+pyomo>=6.7
+# TBD: solver (highspy / CBC / Gurobi)
