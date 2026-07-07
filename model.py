@@ -10,9 +10,9 @@ from pyomo.environ import (ConcreteModel, Set, Var, Constraint, Binary, NonNegat
 
 # Functions
 def cost_rule(m):
-    return (sum(params.FC_et[e,t] * m.Y_et[e,t] for e in m.E for t in m.T) + 
-           sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +
-           sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R )) 
+    return (sum(params.FC_et[e,t] * m.Y_et[e,t] for e in m.E for t in m.T) +                    # fix building C
+           sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
+           sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R ))  # fix transport C
 
 def build_model(p):                    # build_model = function name (input of function = params)           
     m = ConcreteModel()                # m = empty box to be filled
