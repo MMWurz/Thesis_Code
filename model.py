@@ -24,8 +24,8 @@ def build_model(p):                    # build_model = function name (input of f
         # Binary Var
     m.Y_et = Var(m.E, m.T, domain=Binary)                   # build or not build            # 9x
         # Conti Var 
-    m.Q_let = Var(m.L,m.E,m.T, domain=NonNegativeReals)     # transport flow    l > et
-    m.Q_etr = Var(m.E,m.T,m.R, domain=NonNegativeReals)     # transport flow    et > r
+    m.Q_let = Var(m.L,m.E,m.T, domain=NonNegativeReals)     # [kg nat. Li] transport flow    l > et
+    m.Q_etr = Var(m.E,m.T,m.R, domain=NonNegativeReals)     # [kg enr. Li] transport flow    et > r
         # obj. Fkt
     m.obj = Objective(rule=cost_rule, sense=minimize)
         # constraints

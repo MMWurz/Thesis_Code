@@ -19,7 +19,7 @@ def demand_satisfaction(m,r):                           # the demand of the reac
 # MATERIAL-BALANCE - con (Eq. 12 & 13)
 def material_balance(m,e,t):                            # all that flows into et must flow out of et
     return (sum(m.Q_let[l,e,t] for l in m.L) 
-            == params.f * sum(m.Q_etr[e,t,r] for r in m.R))
+            == params.f_ne * sum(m.Q_etr[e,t,r] for r in m.R))
 
 # PRODUCTION RATE - con (Eq. 15)
 def extraction_ceiling(m,l):                         
