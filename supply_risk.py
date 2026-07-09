@@ -27,3 +27,6 @@ def calculate_SR_L(m):                        # SR_{Li,e} for each enrichment si
         f_e = import_share_L(m, e)
         SR_L[e] = geopolrisk(params.s_k, params.g, f_e)
     return SR_L
+
+HHI = hhi(params.s_k)                                                   # 0.25, fix (globale Produktion)
+Q_flow_ges  = len(params.L) * len(params.T) * params.Q_max_nat          # 40 kg, Σ max-Flüsse in alle e

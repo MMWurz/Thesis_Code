@@ -3,6 +3,7 @@
 # I write in python -> pyomo (translates into math) -> solver
 import params
 import constraints  
+import supply_risk
 
 from pyomo.environ import (ConcreteModel, Set, Var, Constraint, Binary, NonNegativeReals, Objective, minimize)
     # model container	m = ConcreteModel()
@@ -13,6 +14,10 @@ def cost_rule(m):
     return (sum(params.FC_et[e,t] * m.Y_et[e,t] for e in m.E for t in m.T) +                    # fix building C
            sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
            sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R ))  # fix transport C
+
+def supply_risk_rule(m):
+    return (supply_risk.HHI / supply_risk.Q_flow_ges * 
+        sum(params.g[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))    
 
 def build_model(p):                    # build_model = function name (input of function = params)           
     m = ConcreteModel()                # m = empty box to be filled
@@ -27,7 +32,9 @@ def build_model(p):                    # build_model = function name (input of f
     m.Q_let = Var(m.L,m.E,m.T, domain=NonNegativeReals)     # [kg nat. Li] transport flow    l > et
     m.Q_etr = Var(m.E,m.T,m.R, domain=NonNegativeReals)     # [kg enr. Li] transport flow    et > r
         # obj. Fkt
-    m.obj = Objective(rule=cost_rule, sense=minimize)
+    m.obj_cost = Objective(rule=cost_rule, sense=minimize)
+    m.obj_SR   = Objective(rule=supply_risk_rule, sense=minimize)
+    m.obj_SR.deactivate()                                    # standard: costs active
         # constraints
     m.c_techsite    = Constraint(m.E,               rule=constraints.one_tech_per_site)
     m.c_flow1       = Constraint(m.L, m.E, m.T,     rule=constraints.flow_active_rule_1)
