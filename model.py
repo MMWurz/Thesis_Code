@@ -5,7 +5,7 @@ import params
 import constraints  
 import supply_risk
 
-from pyomo.environ import (ConcreteModel, Set, Var, Constraint, Binary, NonNegativeReals, Objective, minimize)
+from pyomo.environ import (ConcreteModel, Set, Var, Param, Constraint, Binary, NonNegativeReals, Objective, minimize)
     # model container	m = ConcreteModel()
     # index collections	m.E, m.T, m.L, m.R
 
@@ -19,8 +19,8 @@ def supply_risk_rule(m):
     return (supply_risk.HHI / supply_risk.Q_flow_ges * 
         sum(params.g[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))    
 
-def build_model(p):                    # build_model = function name (input of function = params)           
-    m = ConcreteModel()                # m = empty box to be filled
+def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = function name (input of function = params)           
+    m = ConcreteModel()                                     # m = empty box to be filled
         # Parameter
     m.L = Set(initialize=p.L)
     m.E = Set(initialize=p.E)
@@ -35,7 +35,7 @@ def build_model(p):                    # build_model = function name (input of f
     m.obj_cost = Objective(rule=cost_rule, sense=minimize)
     m.obj_SR   = Objective(rule=supply_risk_rule, sense=minimize)
     m.obj_SR.deactivate()                                    # standard: costs active
-        # constraints
+        # Constraints
     m.c_techsite    = Constraint(m.E,               rule=constraints.one_tech_per_site)
     m.c_flow1       = Constraint(m.L, m.E, m.T,     rule=constraints.flow_active_rule_1)
     m.c_flow2       = Constraint(m.E, m.T, m.R,     rule=constraints.flow_activation_rule_2)
@@ -44,6 +44,13 @@ def build_model(p):                    # build_model = function name (input of f
     m.c_ex_ceiling  = Constraint(m.L,               rule=constraints.extraction_ceiling)
     m.c_en_ceiling  = Constraint(m.E, m.T,          rule=constraints.enrichment_ceiling)
     m.c_en_bottom   = Constraint(m.E, m.T,          rule=constraints.enrichment_bottom)
+        # AUGMECON (SR -> con)
+    m.eps           = Param(initialize=0.0, mutable=True)
+    m.s             = Var(within=NonNegativeReals)                      # [] slack-variable
+    m.c_eps          = Constraint(expr = supply_risk_rule(m) + m.s == m.eps)
+    m.c_eps.deactivate()
+    m.obj_augmecon  = Objective(expr = cost_rule(m) - delta*(m.s/r_SR), sense=minimize)
+    m.obj_augmecon.deactivate()
     return m 
 
 
