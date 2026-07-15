@@ -16,7 +16,7 @@ def cost_rule(m):
            sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R ))  # fix transport C
 
 def supply_risk_rule(m):
-    return (supply_risk.HHI / supply_risk.Q_flow_ges * 
+    return (supply_risk.HHI / supply_risk.D_nat *
         sum(params.g[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))    
 
 def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = function name (input of function = params)           

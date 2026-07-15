@@ -29,4 +29,4 @@ def calculate_SR_L(m):                        # SR_{Li,e} for each enrichment si
     return SR_L
 
 HHI = hhi(params.s_k)                                                   # 0.25, fix (globale Produktion)
-Q_flow_ges  = len(params.L) * len(params.T) * params.Q_max_nat          # 40 kg, Σ max-Flüsse in alle e
+D_nat = params.f_ne * params.D_r1                                       # 20 kg, Demand an nat. Li (fester Nenner)
