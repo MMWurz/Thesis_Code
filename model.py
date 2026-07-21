@@ -13,13 +13,22 @@ from pyomo.environ import (ConcreteModel, Set, Var, Param, Constraint, Binary, N
 def cost_rule(m):
     return (sum(params.FC_et[e,t] * m.Y_et[e,t] for e in m.E for t in m.T) +                    # fix building C
            sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
-           sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R ))  # fix transport C
+           sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R )+  # fix transport C
+           sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # fix enrichment&processing C
+           sum(params.EC_et[e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))      # fix enrichment C TODO: this needs to be sophisticated f_ne driven/output driven etc..
 
 def supply_risk_rule(m):
     return (supply_risk.HHI / supply_risk.D_nat *
         sum(params.g[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))    
 
 def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = function name (input of function = params)           
+        # Safety-Catches
+    if r_SR == 0:
+        raise ValueError(
+            "r_SR = 0: cost and supply risk do not conflict "
+            "(SR_max == SR_min) — no trade-off exists, AUGMECON is not applicable."
+        )
+
     m = ConcreteModel()                                     # m = empty box to be filled
         # Parameter
     m.L = Set(initialize=p.L)

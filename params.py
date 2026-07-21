@@ -28,7 +28,15 @@ TC_let = {('l1','e1','t1'):5,           #[€/kg nat. Li] TransportCost (Flow): 
 TC_etr = {('e1','t1','r1'):50,          #[€/kg enr. Li] TransportCost (Flow): from enrichment site e with technology t to reactor r
           ('e1','t2','r1'):70,
           ('e2','t1','r1'):60,
-          ('e2','t2','r1'):170}                            
+          ('e2','t2','r1'):170}     
+
+PC_l  = {('l1'):5,                    #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
+         ('l2'):10}                       
+
+EC_et = {('e1','t1'):25,                #[€/kg nat. Li] Enrichment costs: enrichment site e with technology t 
+         ('e1','t2'):35,
+         ('e2','t1'):27,
+         ('e2','t2'):35}
 
 # Capacities
 Cap_l = {'l1':20,                       #[kg nat. Li] extraction&processing capacity ceiling (max. amount handable)
@@ -49,7 +57,11 @@ Cap_et_min = {('e1','t1'):1,            #[kg nat. Li] enrichment bottom ceiling 
 # Missc.
 D_r1 = 10                               #[kg enr. Li] Demand of reactor 1
 
-f_ne = 2                                   #[kg nat. Li/ kg enriched Li] 50% enrichment 
+f_ne = 2                                #[kg nat. Li/ kg enriched Li] 50% enrichment 
+
+
+#f_ne_t = {'t1':2.2,                     #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
+#          't2':2.5}
 
 Q_max_enr = 10                          #[kg enr. Li] upper flow bound
 Q_max_nat = f_ne * D_r1                 #[kg nat. Li] upper flow bound
