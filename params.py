@@ -3,9 +3,9 @@
 # Flow unit/ commodity: kg - either natural or enriched
 
 # INDEX-SETS
+L = ['l1','l2']                         # [Location] Extraction & Processing site 
 E = ['e1','e2']                         # [Location] Enrichment site 
 T = ['t1','t2']                         # [Technology] Enrichment site
-L = ['l1','l2']                         # [Location] Extraction & Processing site 
 R = ['r1']                              # [Location] Rector
 
 # PARAMETERS
@@ -30,7 +30,7 @@ TC_etr = {('e1','t1','r1'):50,          #[€/kg enr. Li] TransportCost (Flow): 
           ('e2','t1','r1'):60,
           ('e2','t2','r1'):170}     
 
-PC_l  = {('l1'):5,                    #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
+PC_l  = {('l1'):5,                      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
          ('l2'):10}                       
 
 EC_et = {('e1','t1'):25,                #[€/kg nat. Li] Enrichment costs: enrichment site e with technology t 
@@ -55,9 +55,9 @@ Cap_et_min = {('e1','t1'):1,            #[kg nat. Li] enrichment bottom ceiling 
               ('e2','t2'):1}
 
 # Missc.
-D_r1 = 10                               #[kg enr. Li] Demand of reactor 1
+D_r1 = 10                               #[kg enr. Li] Demand of reactor for enriched Li
 
-f_ne = 2                                #[kg nat. Li/ kg enriched Li] 50% enrichment 
+f_ne = 2                                #[kg nat. Li/ kg enr. Li] 50% enrichment 
 
 
 #f_ne_t = {'t1':2.2,                     #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
@@ -67,12 +67,22 @@ Q_max_enr = 10                          #[kg enr. Li] upper flow bound
 Q_max_nat = f_ne * D_r1                 #[kg nat. Li] upper flow bound
 
 # Supply risk
-s_k = {("k1"): 0.25,                      #[-] supply share of country k in global production of commodity 
+s_extr_k = {("k1"): 0.25,                      #[-] supply share of all countries k in global production of commodity 
        ("k2"): 0.25,                      # Australia, China; Chile, Argentinia ...
        ("k3"): 0.25,                      # 
        ("k4"): 0.25}
 
-g = {("l1"): 0.8,                           # political instability indicater (derived from WGI)
+s_enr_k = {("enr_k1"): 0.25,              #[-] supply share of all countries in enrichment
+           ("enr_k2"): 0.25,              # as above
+           ("enr_k3"): 0.25,
+           ("enr_k4"): 0.25}
+
+g_extr = {("l1"): 0.8,                          #[-] political instability indicater (derived from WGI)
      ("l2"): 0.2}                           # for each l country my model may get natural Li from
+                                            # TODO rescale!!!
+                                            # high = risky
+
+g_enr = {("e1"): 0.8,                         # [-]
+         ("e2"): 0.2}                         # as above 
                                           # TODO rescale!!!
-                                          # high = risky
+                                            

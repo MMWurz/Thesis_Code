@@ -17,9 +17,16 @@ def cost_rule(m):
            sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # fix enrichment&processing C
            sum(params.EC_et[e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))      # fix enrichment C TODO: this needs to be sophisticated f_ne driven/output driven etc..
 
-def supply_risk_rule(m):
-    return (supply_risk.HHI / supply_risk.D_nat *
-        sum(params.g[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))    
+def supply_risk_rule(m):                                    # SR_tot (weights 1 and 1)
+    return (supply_risk_extr_rule(m) + supply_risk_enr_rule(m))    
+
+def supply_risk_extr_rule(m):
+    return (supply_risk.HHI_extr / supply_risk.D_nat *
+            sum(params.g_extr[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))
+
+def supply_risk_enr_rule(m):
+    return (supply_risk.HHI_enr / supply_risk.D_enr *
+            sum(params.g_enr[e] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R))
 
 def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = function name (input of function = params)           
         # Safety-Catches
