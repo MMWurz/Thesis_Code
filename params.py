@@ -1,4 +1,4 @@
-from conversions import compound_to_Li_price, w_Li_LIOH_H2O
+import conversions
 # All model parameters, bounds, and configuration constants (costs, emission factors, capacities, solver settings).
 
 # Flow unit/ commodity: kg - either natural or enriched
@@ -58,9 +58,9 @@ TC_etr = {('e_US','t1','r1'):60,        #[€/kg enr. Li] TransportCost (Flow): 
           ('e_RU','t1','r1'):85,
           ('e_RU','t2','r1'):100}
 
-PC_l  = {('l_A'):compound_to_Li_price(9900, w_Li_LIOH_H2O),      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
-         ('l_Ci'):compound_to_Li_price(9900, w_Li_LIOH_H2O),
-         ('l_Ch'):compound_to_Li_price(9900, w_Li_LIOH_H2O)}     # [€/kg nat. Li]; ca. 55.4 €/kg; USGS MCS 2025 p.110: LiOH·H2O spot, China, Nov 2024
+PC_l  = {('l_A'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
+         ('l_Ci'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),
+         ('l_Ch'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O)}     # [€/kg nat. Li]; ca. 55.4 €/kg; USGS MCS 2025 p.110: LiOH·H2O spot, China, Nov 2024
            
 
 EC_et = {('e_US','t1'):30,              #[€/kg nat. Li] Enrichment costs: enrichment site e with technology t
@@ -115,10 +115,24 @@ Q_max_enr = D_r1                        #[kg enr. Li] upper flow bound (one link
 Q_max_nat = f_ne * D_r1                 #[kg nat. Li] upper flow bound
 
 # Supply risk
-s_extr_k = {("k1"): 0.25,                      #[-] supply share of all countries k in global production of commodity 
-       ("k2"): 0.25,                      # Australia, China; Chile, Argentinia ...
-       ("k3"): 0.25,                      # 
-       ("k4"): 0.25}
+prod_extr = { ("Argentina"): 18_000_000,    #[kg nat. Li] Li-content, USGS MCS 2025 (2024e)
+              ("Australia"): 88_000_000, 
+              ("Brazil"):   10_000_000,   
+              ("Canada"):   4_300_000,
+              ("Chile"):    49_000_000,
+              ("China"):    41_000_000,
+              ("Namibia"):  2_700_000,
+              ("Portugal"): 380_000,
+              ("Zimbabwe"): 22_000_000,
+              ("Other countries"): 4_620_000
+}
+
+#s_extr_k = {("k1"): 0.25,                      #[-] supply share of all countries k in global production of commodity 
+#       ("k2"): 0.25,                      # Australia, China; Chile, Argentinia ...
+#       ("k3"): 0.25,                      # 
+#       ("k4"): 0.25}
+
+s_extr_k = conversions.s_k_shares(prod_extr) # [-] production share of each country - sum = 1
 
 s_enr_k = {("enr_k1"): 0.25,              #[-] supply share of all countries in enrichment
            ("enr_k2"): 0.25,              # as above

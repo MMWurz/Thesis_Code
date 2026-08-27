@@ -13,8 +13,8 @@ def geopolrisk(shares, g, f):                               # full Eq. (1): SR_{
     return hhi(shares) * import_risk(g, f)
 
 # FIXED OBJECTIVE SCALARS
-HHI_extr = hhi(params.s_extr_k)                                         # 0.25, fix (globale Produktion)
-D_nat = params.f_ne * params.D_r1                                       # 20 kg, Demand an nat. Li (fester Nenner)
+HHI_extr = hhi(params.s_extr_k)                                         # fix (globale Produktion)
+D_nat = params.f_ne * params.D_r1                                       # Demand an nat. Li (fester Nenner)
 
 HHI_enr = hhi(params.s_enr_k)
 D_enr = params.D_r1
