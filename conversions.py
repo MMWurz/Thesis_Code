@@ -19,3 +19,9 @@ def compound_to_Li_price(price_usd_t, w_li):                # [$/t compound -> â
 def s_k_shares(production):
     prod_tot = sum(production.values())     #[kg nat. Li] total worldwide produced Li 2024 - 240k tons
     return {k: v/prod_tot for k, v in production.items()}
+
+def WGI_PV_average(countries):
+    return  sum(countries.values()) / len(countries) 
+
+def WGI_PV_to_g(country):
+    return (2.5 - country)/5
