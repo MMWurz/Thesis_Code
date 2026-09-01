@@ -76,19 +76,19 @@ EC_et = {('e_US','t1'):30,              #[€/kg nat. Li] Enrichment costs: enri
 #[kg nat. Li] extraction&processing capacity ceiling (max. amount handable)
 # Per-country extraction/processing capacity ceiling (upper bound on total outflow from l).
 # Proxy: 2024 mine production, lithium content. USGS MCS 2025 p.111.
-Cap_l = {'l_Au':  88000000,   #[kg nat. Li] Australia
-         'l_Ci': 49000000,   #[kg nat. Li] Chile
-         'l_Ch': 41000000}   #[kg nat. Li] China
+Cap_l = {'l_Au': 88_000_000,   #[kg nat. Li] Australia
+         'l_Ci': 49_000_000,   #[kg nat. Li] Chile
+         'l_Ch': 41_000_000}   #[kg nat. Li] China
                            
 
-Cap_et = {('e_US','t1'):200000,        #[kg nat. Li] enrichment capacity ceiling (max. amount handable by one site)
-          ('e_US','t2'):200000,        # TODO Day 9: replace smoke-run placeholder (>f_ne*D_r1=115_556) with cascade-economics value
-          ('e_EU','t1'):200000,
-          ('e_EU','t2'):200000,
-          ('e_Ch','t1'):200000,
-          ('e_Ch','t2'):200000,
-          ('e_Ru','t1'):200000,
-          ('e_Ru','t2'):200000}
+Cap_et = {('e_US','t1'):200_000,        #[kg nat. Li] enrichment capacity ceiling (max. amount handable by one site)
+          ('e_US','t2'):200_000,        # TODO Day 9: replace smoke-run placeholder (>f_ne*D_r1=115_556) with cascade-economics value
+          ('e_EU','t1'):200_000,
+          ('e_EU','t2'):200_000,
+          ('e_Ch','t1'):200_000,
+          ('e_Ch','t2'):200_000,
+          ('e_Ru','t1'):200_000,
+          ('e_Ru','t2'):200_000}
                             
 
 Cap_et_min = {('e_US','t1'):1,          #[kg nat. Li] enrichment bottom ceiling (min. amount handable by one site)
@@ -101,7 +101,7 @@ Cap_et_min = {('e_US','t1'):1,          #[kg nat. Li] enrichment bottom ceiling 
               ('e_Ru','t2'):1}
 
 # Missc.
-D_r1 = 52000                              #[kg enr. Li] Demand of reactor for enriched Li
+D_r1 = 52_000                              #[kg enr. Li] Demand of reactor for enriched Li
                                           #   = 52 t of 90%-enriched lithium (WCLL breeder inventory, 2 GWfus DEMO), Giegerich 2019.
                                           #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
 
