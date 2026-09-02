@@ -15,7 +15,7 @@ def cost_rule(m):
            sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
            sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R )+  # fix transport C
            sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # fix enrichment&processing C
-           sum(params.EC_et[e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T))      # fix enrichment C TODO: this needs to be sophisticated f_ne driven/output driven etc..
+           sum(params.EC_et[e,t] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R))      # enrichment cost product (output=kg enr. Li6) driven
 
 def supply_risk_rule(m):                                    # SR_tot (weights 1 and 1)
     return (supply_risk_extr_rule(m) + supply_risk_enr_rule(m))    

@@ -4,115 +4,85 @@ import conversions
 # Flow unit/ commodity: kg - either natural or enriched
 
 # INDEX-SETS
-L = ['l_Au',          'l_Ci',       'l_Ch']       # [Location] Extraction & Processing site 
+L = ['l_Au',          'l_Ci',       'l_Ch']             # [Location] Extraction & Processing site 
 #    Australia,      Chile,        China
 
-E = ['e_US',      'e_EU',      'e_Ch',      'e_Ru']      # [Location] Enrichment site
+E = ['e_US',      'e_EU',      'e_Ch',      'e_Ru']     # [Location] Enrichment site
 #    USA,           EU,          China,       Russia
-T = ['t1','t2']                         # [Technology] Enrichment site
-R = ['r1']                              # [Location] Rector
+
+T = ['t_chemEx', 't_dispChr', 't_elChem', 't_amalgam']  # [Technology] Enrichment site
+
+R = ['r1']                                              # [Location] Rector
 
 # PARAMETERS
 
 # Costs
-FC_et = {('e_US','t1'):500,             #[€] FixedCost (Building): enrichment site e with technology t
-         ('e_US','t2'):700,
-         ('e_EU','t1'):800,
-         ('e_EU','t2'):1000,
-         ('e_Ch','t1'):400,
-         ('e_Ch','t2'):600,
-         ('e_Ru','t1'):450,
-         ('e_Ru','t2'):650}
+FC_e = {'e_US': 500,                                #[€] FixedCost (Building) per enrichment site; tech-independent placeholder (Day 9)
+        'e_EU': 800,
+        'e_Ch': 400,
+        'e_Ru': 450}
+FC_et = {(e, t): FC_e[e] for e in E for t in T}     #[€] broadcast per site across all technologies
 
-TC_let = {('l_Au','e_US','t1'):15,        #[€/kg nat. Li] TransportCost (Flow): from extraxtion&processing site l to enrichment site e with technology t
-          ('l_Au','e_US','t2'):17,
-          ('l_Au','e_EU','t1'):20,
-          ('l_Au','e_EU','t2'):22,
-          ('l_Au','e_Ch','t1'):8,
-          ('l_Au','e_Ch','t2'):10,
-          ('l_Au','e_Ru','t1'):18,
-          ('l_Au','e_Ru','t2'):20,
-          ('l_Ci','e_US','t1'):10,
-          ('l_Ci','e_US','t2'):12,
-          ('l_Ci','e_EU','t1'):18,
-          ('l_Ci','e_EU','t2'):20,
-          ('l_Ci','e_Ch','t1'):22,
-          ('l_Ci','e_Ch','t2'):24,
-          ('l_Ci','e_Ru','t1'):25,
-          ('l_Ci','e_Ru','t2'):27,
-          ('l_Ch','e_US','t1'):30,
-          ('l_Ch','e_US','t2'):32,
-          ('l_Ch','e_EU','t1'):28,
-          ('l_Ch','e_EU','t2'):30,
-          ('l_Ch','e_Ch','t1'):5,
-          ('l_Ch','e_Ch','t2'):7,
-          ('l_Ch','e_Ru','t1'):12,
-          ('l_Ch','e_Ru','t2'):14}
+TC_le = {('l_Au','e_US'): 15,                       #[€/kg nat. Li] transport l->e per (l,e); Day 7 approximate (freight coeff x sea dist.)
+         ('l_Au','e_EU'): 20,
+         ('l_Au','e_Ch'): 8,
+         ('l_Au','e_Ru'): 18,
+         ('l_Ci','e_US'): 10,
+         ('l_Ci','e_EU'): 18,
+         ('l_Ci','e_Ch'): 22,
+         ('l_Ci','e_Ru'): 25,
+         ('l_Ch','e_US'): 30,
+         ('l_Ch','e_EU'): 28,
+         ('l_Ch','e_Ch'): 5,
+         ('l_Ch','e_Ru'): 12}
+TC_let = {(l, e, t): TC_le[(l,e)] for l in L for e in E for t in T}   #[€/kg nat. Li] broadcast across technologies (transport is tech-independent)
 
-TC_etr = {('e_US','t1','r1'):60,        #[€/kg enr. Li] TransportCost (Flow): from enrichment site e with technology t to reactor r
-          ('e_US','t2','r1'):80,
-          ('e_EU','t1','r1'):30,
-          ('e_EU','t2','r1'):45,
-          ('e_Ch','t1','r1'):90,
-          ('e_Ch','t2','r1'):110,
-          ('e_Ru','t1','r1'):85,
-          ('e_Ru','t2','r1'):100}
+TC_er = {('e_US','r1'): 60,   #[€/kg enr. Li] transport e->r per (e,r); Day 7 handling-premium scenario
+         ('e_EU','r1'): 30,
+         ('e_Ch','r1'): 90,
+         ('e_Ru','r1'): 85}
+TC_etr = {(e, t, r): TC_er[(e,r)] for e in E for t in T for r in R}                 #[€/kg enr. Li] broadcast across technologies
 
 PC_l  = {('l_Au'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
          ('l_Ci'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),
          ('l_Ch'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O)}     # [€/kg nat. Li]; ca. 55.4 €/kg; USGS MCS 2025 p.110: LiOH·H2O spot, China, Nov 2024
            
 
-EC_et = {('e_US','t1'):30,              #[€/kg nat. Li] Enrichment costs: enrichment site e with technology t
-         ('e_US','t2'):35,
-         ('e_EU','t1'):32,
-         ('e_EU','t2'):38,
-         ('e_Ch','t1'):25,
-         ('e_Ch','t2'):28,
-         ('e_Ru','t1'):27,
-         ('e_Ru','t2'):30}
+EC_e = {'t_chemEx':  2500,                          #[€/kg enr. Li6 product] chemical exchange (liquid)  -- Badea "very high"
+        't_dispChr': 1250,                          #[€/kg enr. Li6 product] displacement chromatography -- Badea "moderate"
+        't_elChem':  1250,                          #[€/kg enr. Li6 product] electrochemical exchange    -- Acosta 0.77 k$/kg floor -> moderate
+        't_amalgam': 1000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
+EC_et = {(e, t): EC_e[t] for e in E for t in T}     #[€/kg enr. Li6 product] per technology, broadcast across sites; charged on Q_etr (OUTPUT)
+EC_amalgam_high = 2000                              #[€/kg enr. Li6 product] RUN C: COLEX/ICOMAX high scenario (Ward Hg financing)
 
 # Capacities
 #[kg nat. Li] extraction&processing capacity ceiling (max. amount handable)
 # Per-country extraction/processing capacity ceiling (upper bound on total outflow from l).
 # Proxy: 2024 mine production, lithium content. USGS MCS 2025 p.111.
-Cap_l = {'l_Au': 88_000_000,   #[kg nat. Li] Australia
-         'l_Ci': 49_000_000,   #[kg nat. Li] Chile
-         'l_Ch': 41_000_000}   #[kg nat. Li] China
+Cap_l = {'l_Au': 88_000_000,                        #[kg nat. Li] Australia
+         'l_Ci': 49_000_000,                        #[kg nat. Li] Chile
+         'l_Ch': 41_000_000}                        #[kg nat. Li] China
                            
 
-Cap_et = {('e_US','t1'):200_000,        #[kg nat. Li] enrichment capacity ceiling (max. amount handable by one site)
-          ('e_US','t2'):200_000,        # TODO Day 9: replace smoke-run placeholder (>f_ne*D_r1=115_556) with cascade-economics value
-          ('e_EU','t1'):200_000,
-          ('e_EU','t2'):200_000,
-          ('e_Ch','t1'):200_000,
-          ('e_Ch','t2'):200_000,
-          ('e_Ru','t1'):200_000,
-          ('e_Ru','t2'):200_000}
+Cap_et = {(e, t): 200_000 for e in E for t in T}    #[kg nat. Li] enrichment capacity ceiling per (e,t); tech-independent placeholder
+                                                    # TODO Day 9: replace smoke-run placeholder (>f_ne*D_r1=115_556) with cascade-economics value
                             
 
-Cap_et_min = {('e_US','t1'):1,          #[kg nat. Li] enrichment bottom ceiling (min. amount handable by one site)
-              ('e_US','t2'):1,
-              ('e_EU','t1'):1,
-              ('e_EU','t2'):1,
-              ('e_Ch','t1'):1,
-              ('e_Ch','t2'):1,
-              ('e_Ru','t1'):1,
-              ('e_Ru','t2'):1}
+Cap_et_min = {(e, t): 1 for e in E for t in T}      #[kg nat. Li] enrichment bottom ceiling per (e,t); placeholder
 
 # Missc.
-D_r1 = 52_000                              #[kg enr. Li] Demand of reactor for enriched Li
-                                          #   = 52 t of 90%-enriched lithium (WCLL breeder inventory, 2 GWfus DEMO), Giegerich 2019.
-                                          #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
+D_r1 = 52_000                                       #[kg enr. Li] Demand of reactor for enriched Li
+                                                    #   = 52 t of 90%-enriched lithium (WCLL breeder inventory, 2 GWfus DEMO), Giegerich 2019.
+                                                    #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
 
-f_ne = 2                                #[kg nat. Li/ kg enr. Li] 50% enrichment
+f_ne = 2                            #[kg nat. Li/ kg enr. Li] 50% enrichment
 
 
-#f_ne_t = {'t1':2.2,                     #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
+#f_ne_t = {'t1':2.2,                #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
 #          't2':2.5}
 
-Q_max_enr = D_r1                        #[kg enr. Li] upper flow bound (one link must carry full demand)
-Q_max_nat = f_ne * D_r1                 #[kg nat. Li] upper flow bound
+Q_max_enr = D_r1                    #[kg enr. Li] upper flow bound (one link must carry full demand)
+Q_max_nat = f_ne * D_r1             #[kg nat. Li] upper flow bound
 
 # Supply risk
 prod_extr = { ("Argentina"): 18_000_000,    #[kg nat. Li] Li-content, USGS MCS 2025 (2024e)
@@ -169,7 +139,7 @@ WGI_PV = {("Australia"): {'y_24': 0.8,  'av_3': 0.9},         # [-] WGI-PV per m
           ("US"):        {'y_24': -0.1, 'av_3': -0.2},
           ("Russia"):    {'y_24': -0.9, 'av_3': -0.8}}
 
-WGI_PV['EU'] = {'y_24': conversions.WGI_PV_average({c: v['y_24'] for c, v in WGI_PV_EU.items()}),   # EU = mean over members, added as one more country
+WGI_PV['EU'] = {'y_24': conversions.WGI_PV_average({c: v['y_24'] for c, v in WGI_PV_EU.items()}),   # [-] EU = mean over members, added as one more country
                 'av_3': conversions.WGI_PV_average({c: v['av_3'] for c, v in WGI_PV_EU.items()})}
 
                                                                             # political instability indicator g = (2.5 - PV)/5, high = risky
