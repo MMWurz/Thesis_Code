@@ -23,6 +23,7 @@ FC_e = {'e_US': 500,                                #[€] FixedCost (Building) 
         'e_Ru': 450}
 FC_et = {(e, t): FC_e[e] for e in E for t in T}     #[€] broadcast per site across all technologies
 
+# TODO transport: code holds OLD placeholders (5-30 €/kg); thesis Day-7 UNCTAD derivation gives c_TC=0.0171 -> ~0.1-0.3 €/kg. Reconcile in future rework. Immaterial vs enrichment (1000-2500), so safe to park.
 TC_le = {('l_Au','e_US'): 15,                       #[€/kg nat. Li] transport l->e per (l,e); Day 7 approximate (freight coeff x sea dist.)
          ('l_Au','e_EU'): 20,
          ('l_Au','e_Ch'): 8,
@@ -43,15 +44,19 @@ TC_er = {('e_US','r1'): 60,   #[€/kg enr. Li] transport e->r per (e,r); Day 7 
          ('e_Ru','r1'): 85}
 TC_etr = {(e, t, r): TC_er[(e,r)] for e in E for t in T for r in R}                 #[€/kg enr. Li] broadcast across technologies
 
-PC_l  = {('l_Au'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
-         ('l_Ci'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),
-         ('l_Ch'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O)}     # [€/kg nat. Li]; ca. 55.4 €/kg; USGS MCS 2025 p.110: LiOH·H2O spot, China, Nov 2024
+# PC_l  = {('l_Au'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
+#         ('l_Ci'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),
+#         ('l_Ch'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O)}     # [€/kg nat. Li]; ca. 55.4 €/kg; USGS MCS 2025 p.110: LiOH·H2O spot, China, Nov 2024
            
+PC_l  = {('l_Au'):89.96,      #[€/kg Li] = Trade-based feed prices =Production costs : from extraxtion&processing site l 
+        ('l_Ci'):52.14,
+        ('l_Ch'):103.04} 
+
 
 EC_e = {'t_chemEx':  2500,                          #[€/kg enr. Li6 product] chemical exchange (liquid)  -- Badea "very high"
         't_dispChr': 1250,                          #[€/kg enr. Li6 product] displacement chromatography -- Badea "moderate"
         't_elChem':  1250,                          #[€/kg enr. Li6 product] electrochemical exchange    -- Acosta 0.77 k$/kg floor -> moderate
-        't_amalgam': 1000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
+        't_amalgam': 2000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
 EC_et = {(e, t): EC_e[t] for e in E for t in T}     #[€/kg enr. Li6 product] per technology, broadcast across sites; charged on Q_etr (OUTPUT)
 EC_amalgam_high = 2000                              #[€/kg enr. Li6 product] RUN C: COLEX/ICOMAX high scenario (Ward Hg financing)
 
