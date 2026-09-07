@@ -17,7 +17,7 @@ R = ['r1']                                              # [Location] Rector
 # PARAMETERS
 
 # Costs
-FC_e = {'e_US': 500,                                #[€] FixedCost (Building) per enrichment site; tech-independent placeholder (Day 9)
+FC_e = {'e_US': 500,                                #[€] CAPEX FixedCost (Building) per enrichment site; tech-independent placeholder (Day 9)
         'e_EU': 800,
         'e_Ch': 400,
         'e_Ru': 450}
@@ -56,7 +56,7 @@ PC_l  = {('l_Au'):89.96,      #[€/kg Li] = Trade-based feed prices =Production
 EC_e = {'t_chemEx':  2500,                          #[€/kg enr. Li6 product] chemical exchange (liquid)  -- Badea "very high"
         't_dispChr': 1250,                          #[€/kg enr. Li6 product] displacement chromatography -- Badea "moderate"
         't_elChem':  1250,                          #[€/kg enr. Li6 product] electrochemical exchange    -- Acosta 0.77 k$/kg floor -> moderate
-        't_amalgam': 2000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
+        't_amalgam': 1000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
 EC_et = {(e, t): EC_e[t] for e in E for t in T}     #[€/kg enr. Li6 product] per technology, broadcast across sites; charged on Q_etr (OUTPUT)
 EC_amalgam_high = 2000                              #[€/kg enr. Li6 product] RUN C: COLEX/ICOMAX high scenario (Ward Hg financing)
 
@@ -69,18 +69,17 @@ Cap_l = {'l_Au': 88_000_000,                        #[kg nat. Li] Australia
          'l_Ch': 41_000_000}                        #[kg nat. Li] China
                            
 
-Cap_et = {(e, t): 200_000 for e in E for t in T}    #[kg nat. Li] enrichment capacity ceiling per (e,t); tech-independent placeholder
-                                                    # TODO Day 9: replace smoke-run placeholder (>f_ne*D_r1=115_556) with cascade-economics value
+Cap_et = {(e, t): 482_400 for e in E for t in T}     #[kg nat. Li] Y-12 historical avg (40 t/yr product × f_ne), Giegerich 2019 §3
                             
 
-Cap_et_min = {(e, t): 1 for e in E for t in T}      #[kg nat. Li] enrichment bottom ceiling per (e,t); placeholder
+Cap_et_min = {(e, t): 12_060 for e in E for t in T} #[kg nat. Li] ICOMAX FOAK target (1 t/yr product × f_ne), Giegerich 2019 §4.7
 
 # Missc.
 D_r1 = 52_000                                       #[kg enr. Li] Demand of reactor for enriched Li
                                                     #   = 52 t of 90%-enriched lithium (WCLL breeder inventory, 2 GWfus DEMO), Giegerich 2019.
                                                     #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
 
-f_ne = 2                            #[kg nat. Li/ kg enr. Li] 50% enrichment
+f_ne = 12.06                            #[kg nat. Li/ kg enr. Li] 90% enrichment
 
 
 #f_ne_t = {'t1':2.2,                #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
