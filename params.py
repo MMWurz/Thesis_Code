@@ -14,14 +14,67 @@ T = ['t_chemEx', 't_dispChr', 't_elChem', 't_amalgam']  # [Technology] Enrichmen
 
 R = ['r1']                                              # [Location] Rector
 
-# PARAMETERS
+####################### COSTS #######################
+
+# Missc.
+D_r1 = 5_200                                        #[kg enr. Li/yr] TARGET-YEAR SNAPSHOT: ANNUAL demand of reactor for enriched Li
+                                                    #   = 52 t 90%-enr. Li (WCLL breeder inventory, 2 GWfus DEMO, Giegerich 2019) / 10 yr build-up (2040-49 procurement window).
+                                                    #   BUILD-UP ONLY: the 224 kg/yr burn-up replacement (Giegerich 2019) is NOT added - a plant sized for 5.2 t/yr covers it easily.
+                                                    #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
+
+# TODO (HIGH PRIORITY): f_ne is very likely 16.0, not 12.06.
+#   12.06 comes from Dackombe-Rodrigues 2026 footnote 3 (1500 kg nat / 112 kg pure 6Li = 13.4, /0.9 -> product basis),
+#   but that footnote assumes ZERO TAILS (100% 6Li recovery) - a physical floor, not an estimate.
+#   Proper mass balance F/P = (x_p - x_w)/(x_f - x_w) with x_f=0.075 and Giegerich 2019 Oak Ridge tails x_w=0.02:
+#       50% enrichment -> 8.7 | 60% -> 10.5 | 90% -> 16.0     <- the model runs at 90%
+#   Range over Giegerich's full stated tails band (x_w = 1-4%): 13.7 to 24.6.
+#   Source already logged in .md/what_we_need_table.csv (row "f_ne, depleted tails 1-4% Li-6", Giegerich 2019).
+#   Switching to 16.0: feed 62_712 -> 83_200 kg/yr; PC_l and transport +33%; FC_e unaffected (scales with product).
+#   Requires re-run of all results + rewrite of the f_ne subsection in 3_method.tex (eq:f_ne_conversion).
+f_ne = 12.06                            #[kg nat. Li/ kg enr. Li] 90% enrichment - SEE TODO ABOVE
+
+
+#f_ne_t = {'t1':2.2,                #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
+#          't2':2.5}
+
+Q_max_enr = D_r1                    #[kg enr. Li/yr] upper flow bound (one link must carry full demand)
+Q_max_nat = f_ne * D_r1             #[kg nat. Li/yr] upper flow bound
+                                    # TODO: have a look at big M - bounds are now 10x tighter after the D_r1 rescale (52_000 -> 5_200)
+
+# Capacities
+#[kg nat. Li/yr] extraction&processing capacity ceiling (max. amount handable per year)
+# Per-country extraction/processing capacity ceiling (upper bound on total annual outflow from l).
+# Proxy: 2024 mine production (an ANNUAL rate), lithium content. USGS MCS 2025 p.111.
+Cap_l = {'l_Au': 88_000_000,                        #[kg nat. Li/yr] Australia
+         'l_Ci': 49_000_000,                        #[kg nat. Li/yr] Chile
+         'l_Ch': 41_000_000}                        #[kg nat. Li/yr] China
+                           
+
+Cap_e_min_prod  = 1_000    #[kg/yr enr. product] = ICOMAX FOAK target
+Cap_e_prod      = 40_000   #[kg/yr enr. product] = Y-12 historical avg
+
+Cap_et_min = {(e,t): f_ne * Cap_e_min_prod for e in E for t in T}   #[kg nat. Li/yr]
+Cap_et     = {(e,t): f_ne * Cap_e_prod     for e in E for t in T}   #[kg nat. Li/yr]
 
 # Costs
-FC_e = {'e_US': 500,                                #[€] CAPEX FixedCost (Building) per enrichment site; tech-independent placeholder (Day 9)
-        'e_EU': 800,
-        'e_Ch': 400,
-        'e_Ru': 450}
-FC_et = {(e, t): FC_e[e] for e in E for t in T}     #[€] broadcast per site across all technologies
+#[€] CAPEX FixedCost (Building) per enrichment site; tech-independent placeholder (Day 9)
+      
+K_ref   = 508e6                                     #[€2024] eq:capex_escalation
+Q_ref   = 200_000                                   #[kg/yr enr. product] Ault large plant
+b_scale = 0.57                                      #[-]  eq:capex_exponent
+n_life  = 30                                        #[yr] plant lifetime
+fom     = 0.07                                      #[1/yr] Towler&Sinnott p.324
+i_e = {'e_US':0.050, 'e_EU':0.050,                  #[-] real cost of capital, Rothwell 2009
+       'e_Ch':0.025, 'e_Ru':0.025}                  #    state-financed (China assumed)
+f_e = {'e_US':1.00, 'e_EU':1.13,                    #[-] location factor, Towler&Sinnott Tab.7.7
+       'e_Ch':0.61, 'e_Ru':1.53}                    #    Ru sensitivity: 0.57
+
+# Fixed cost FC_e - derived
+CRF_e = {e: conversions.capital_recovery_factor(i_e[e], n_life) for e in E}
+M_e   = {e: (CRF_e[e] + fom) * f_e[e] for e in E}   #[1/yr] tab:FC_multipliers
+Qbar  = conversions.geometric_breakpoints(Cap_e_min_prod, Cap_e_prod, n_seg=4)
+Kbar  = [conversions.capex_power_law(q, K_ref, Q_ref, b_scale) for q in Qbar]
+seg_width, seg_slope = conversions.pwl_segments(Qbar, Kbar)
 
 # TODO transport: code holds OLD placeholders (5-30 €/kg); thesis Day-7 UNCTAD derivation gives c_TC=0.0171 -> ~0.1-0.3 €/kg. Reconcile in future rework. Immaterial vs enrichment (1000-2500), so safe to park.
 TC_le = {('l_Au','e_US'): 15,                       #[€/kg nat. Li] transport l->e per (l,e); Day 7 approximate (freight coeff x sea dist.)
@@ -44,10 +97,7 @@ TC_er = {('e_US','r1'): 60,   #[€/kg enr. Li] transport e->r per (e,r); Day 7 
          ('e_Ru','r1'): 85}
 TC_etr = {(e, t, r): TC_er[(e,r)] for e in E for t in T for r in R}                 #[€/kg enr. Li] broadcast across technologies
 
-# PC_l  = {('l_Au'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),      #[€/kg nat. Li] Production costs : from extraxtion&processing site l 
-#         ('l_Ci'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O),
-#         ('l_Ch'):conversions.compound_to_Li_price(9900, conversions.w_Li_LIOH_H2O)}     # [€/kg nat. Li]; ca. 55.4 €/kg; USGS MCS 2025 p.110: LiOH·H2O spot, China, Nov 2024
-           
+         
 PC_l  = {('l_Au'):89.96,      #[€/kg Li] = Trade-based feed prices =Production costs : from extraxtion&processing site l 
         ('l_Ci'):52.14,
         ('l_Ch'):103.04} 
@@ -60,36 +110,10 @@ EC_e = {'t_chemEx':  2500,                          #[€/kg enr. Li6 product] c
 EC_et = {(e, t): EC_e[t] for e in E for t in T}     #[€/kg enr. Li6 product] per technology, broadcast across sites; charged on Q_etr (OUTPUT)
 EC_amalgam_high = 2000                              #[€/kg enr. Li6 product] RUN C: COLEX/ICOMAX high scenario (Ward Hg financing)
 
-# Capacities
-#[kg nat. Li] extraction&processing capacity ceiling (max. amount handable)
-# Per-country extraction/processing capacity ceiling (upper bound on total outflow from l).
-# Proxy: 2024 mine production, lithium content. USGS MCS 2025 p.111.
-Cap_l = {'l_Au': 88_000_000,                        #[kg nat. Li] Australia
-         'l_Ci': 49_000_000,                        #[kg nat. Li] Chile
-         'l_Ch': 41_000_000}                        #[kg nat. Li] China
-                           
 
-Cap_et = {(e, t): 482_400 for e in E for t in T}     #[kg nat. Li] Y-12 historical avg (40 t/yr product × f_ne), Giegerich 2019 §3
-                            
+####################### SR #######################
 
-Cap_et_min = {(e, t): 12_060 for e in E for t in T} #[kg nat. Li] ICOMAX FOAK target (1 t/yr product × f_ne), Giegerich 2019 §4.7
-
-# Missc.
-D_r1 = 52_000                                       #[kg enr. Li] Demand of reactor for enriched Li
-                                                    #   = 52 t of 90%-enriched lithium (WCLL breeder inventory, 2 GWfus DEMO), Giegerich 2019.
-                                                    #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
-
-f_ne = 12.06                            #[kg nat. Li/ kg enr. Li] 90% enrichment
-
-
-#f_ne_t = {'t1':2.2,                #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
-#          't2':2.5}
-
-Q_max_enr = D_r1                    #[kg enr. Li] upper flow bound (one link must carry full demand)
-Q_max_nat = f_ne * D_r1             #[kg nat. Li] upper flow bound
-
-# Supply risk
-prod_extr = { ("Argentina"): 18_000_000,    #[kg nat. Li] Li-content, USGS MCS 2025 (2024e)
+prod_extr = { ("Argentina"): 18_000_000,    #[kg nat. Li/yr] Li-content, USGS MCS 2025 (2024e). Annual production; only the SHARES matter for HHI, so the /yr basis cancels.
               ("Australia"): 88_000_000, 
               ("Brazil"):   10_000_000,   
               ("Canada"):   4_300_000,

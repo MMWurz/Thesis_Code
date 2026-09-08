@@ -11,7 +11,7 @@ from pyomo.environ import (ConcreteModel, Set, Var, Param, Constraint, Binary, N
 
 # Functions
 def cost_rule(m):
-    return (sum(params.FC_et[e,t] * m.Y_et[e,t] for e in m.E for t in m.T) +                    # fix building C
+    return (sum(params.M_e[e] * m.Kcap[e] for e in m.E) +                                       # annualised capital charge
            sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
            sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R )+  # fix transport C
            sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # fix enrichment&processing C
@@ -47,6 +47,11 @@ def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = func
         # Conti Var 
     m.Q_let = Var(m.L,m.E,m.T, domain=NonNegativeReals)     # [kg nat. Li] transport flow    l > et
     m.Q_etr = Var(m.E,m.T,m.R, domain=NonNegativeReals)     # [kg enr. Li] transport flow    et > r
+        # FC Variables --> sort
+    m.J    = Set(initialize=range(1, len(p.Qbar)))         # segments 1..4
+    m.z    = Var(m.E, m.J, domain=Binary)               # segment j active at site e
+    m.q    = Var(m.E, m.J, domain=NonNegativeReals)     # capacity increment inside segment j
+    m.Kcap = Var(m.E, domain=NonNegativeReals)          # [€] capital cost at site e
         # obj. Fkt
     m.obj_cost = Objective(rule=cost_rule, sense=minimize)
     m.obj_SR   = Objective(rule=supply_risk_rule, sense=minimize)
@@ -60,6 +65,10 @@ def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = func
     m.c_ex_ceiling  = Constraint(m.L,               rule=constraints.extraction_ceiling)
     m.c_en_ceiling  = Constraint(m.E, m.T,          rule=constraints.enrichment_ceiling)
     m.c_en_bottom   = Constraint(m.E, m.T,          rule=constraints.enrichment_bottom)
+    m.c_seg_one     = Constraint(m.E,      rule=constraints.one_segment_if_built)
+    m.c_seg_width   = Constraint(m.E, m.J, rule=constraints.segment_width)
+    m.c_seg_cap     = Constraint(m.E,      rule=constraints.capacity_equals_throughput)
+    m.c_seg_cost    = Constraint(m.E,      rule=constraints.capital_cost)
         # AUGMECON (SR -> con)
     m.eps           = Param(initialize=0.0, mutable=True)
     m.s             = Var(within=NonNegativeReals)                      # [] slack-variable

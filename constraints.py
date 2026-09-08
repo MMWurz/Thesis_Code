@@ -31,6 +31,20 @@ def enrichment_ceiling(m,e,t):
 def enrichment_bottom(m,e,t):
     return sum(m.Q_let[l,e,t] for l in m.L) >= params.Cap_et_min[e,t] * m.Y_et[e,t]
 
+# FC 
+def one_segment_if_built(m, e):                     # exactly one segment iff a plant is built
+    return sum(m.z[e,j] for j in m.J) == sum(m.Y_et[e,t] for t in m.T)
+
+def segment_width(m, e, j):                         # increment cannot exceed its segment
+    return m.q[e,j] <= params.seg_width[j-1] * m.z[e,j]
+
+def capacity_equals_throughput(m, e):               # build exactly the capacity you use
+    return (sum(params.Qbar[j-1]*m.z[e,j] + m.q[e,j] for j in m.J)
+            == sum(m.Q_etr[e,t,r] for t in m.T for r in m.R))
+
+def capital_cost(m, e):                             # PWL evaluation of K(Q)
+    return m.Kcap[e] == sum(params.Kbar[j-1]*m.z[e,j] + params.seg_slope[j-1]*m.q[e,j]
+                            for j in m.J)
 
 
 ### NOTES ###
