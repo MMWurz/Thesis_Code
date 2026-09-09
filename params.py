@@ -22,20 +22,8 @@ D_r1 = 5_200                                        #[kg enr. Li/yr] TARGET-YEAR
                                                     #   BUILD-UP ONLY: the 224 kg/yr burn-up replacement (Giegerich 2019) is NOT added - a plant sized for 5.2 t/yr covers it easily.
                                                     #   NO /alpha: Giegerich's "52 t pure 6Li" == his "26 t/GWfus 90%-enriched Li" == the enriched PRODUCT, not the bare isotope (~47 t 6Li).
 
-# TODO (HIGH PRIORITY): f_ne is very likely 16.0, not 12.06.
-#   12.06 comes from Dackombe-Rodrigues 2026 footnote 3 (1500 kg nat / 112 kg pure 6Li = 13.4, /0.9 -> product basis),
-#   but that footnote assumes ZERO TAILS (100% 6Li recovery) - a physical floor, not an estimate.
-#   Proper mass balance F/P = (x_p - x_w)/(x_f - x_w) with x_f=0.075 and Giegerich 2019 Oak Ridge tails x_w=0.02:
-#       50% enrichment -> 8.7 | 60% -> 10.5 | 90% -> 16.0     <- the model runs at 90%
-#   Range over Giegerich's full stated tails band (x_w = 1-4%): 13.7 to 24.6.
-#   Source already logged in .md/what_we_need_table.csv (row "f_ne, depleted tails 1-4% Li-6", Giegerich 2019).
-#   Switching to 16.0: feed 62_712 -> 83_200 kg/yr; PC_l and transport +33%; FC_e unaffected (scales with product).
-#   Requires re-run of all results + rewrite of the f_ne subsection in 3_method.tex (eq:f_ne_conversion).
-f_ne = 12.06                            #[kg nat. Li/ kg enr. Li] 90% enrichment - SEE TODO ABOVE
+f_ne = 17.2                            #[kg nat. Li/ kg enr. Li] 90% enrichment
 
-
-#f_ne_t = {'t1':2.2,                #[kg nat. Li/ kg enriched Li] 50% enrichment TODO: make conversion rate t-depndant
-#          't2':2.5}
 
 Q_max_enr = D_r1                    #[kg enr. Li/yr] upper flow bound (one link must carry full demand)
 Q_max_nat = f_ne * D_r1             #[kg nat. Li/yr] upper flow bound
@@ -76,25 +64,26 @@ Qbar  = conversions.geometric_breakpoints(Cap_e_min_prod, Cap_e_prod, n_seg=4)
 Kbar  = [conversions.capex_power_law(q, K_ref, Q_ref, b_scale) for q in Qbar]
 seg_width, seg_slope = conversions.pwl_segments(Qbar, Kbar)
 
-# TODO transport: code holds OLD placeholders (5-30 €/kg); thesis Day-7 UNCTAD derivation gives c_TC=0.0171 -> ~0.1-0.3 €/kg. Reconcile in future rework. Immaterial vs enrichment (1000-2500), so safe to park.
-TC_le = {('l_Au','e_US'): 15,                       #[€/kg nat. Li] transport l->e per (l,e); Day 7 approximate (freight coeff x sea dist.)
-         ('l_Au','e_EU'): 20,
-         ('l_Au','e_Ch'): 8,
-         ('l_Au','e_Ru'): 18,
-         ('l_Ci','e_US'): 10,
-         ('l_Ci','e_EU'): 18,
-         ('l_Ci','e_Ch'): 22,
-         ('l_Ci','e_Ru'): 25,
-         ('l_Ch','e_US'): 30,
-         ('l_Ch','e_EU'): 28,
-         ('l_Ch','e_Ch'): 5,
-         ('l_Ch','e_Ru'): 12}
+# Transport Costs TC - with TC = c_TC * distance (c_TC = 0.1038 €/(kg nat. Li * 10^3 km))
+TC_le = {('l_Au','e_US'): 1.329,                    #[€/kg nat. Li] tab:TC_let_values
+         ('l_Au','e_EU'): 2.205,
+         ('l_Au','e_Ch'): 1.067,
+         ('l_Au','e_Ru'): 1.216,
+         ('l_Ci','e_US'): 0.889,
+         ('l_Ci','e_EU'): 1.536,
+         ('l_Ci','e_Ch'): 1.899,
+         ('l_Ci','e_Ru'): 1.724,
+         ('l_Ch','e_US'): 1.101,
+         ('l_Ch','e_EU'): 2.065,
+         ('l_Ch','e_Ch'): 0.000,
+         ('l_Ch','e_Ru'): 0.291}
 TC_let = {(l, e, t): TC_le[(l,e)] for l in L for e in E for t in T}   #[€/kg nat. Li] broadcast across technologies (transport is tech-independent)
 
-TC_er = {('e_US','r1'): 60,   #[€/kg enr. Li] transport e->r per (e,r); Day 7 handling-premium scenario
-         ('e_EU','r1'): 30,
-         ('e_Ch','r1'): 90,
-         ('e_Ru','r1'): 85}
+# Transport Costs TC - basically made up (TODO)
+TC_er = {('e_US','r1'): 90,   #[€/kg enr. Li] allied, moderate export control
+         ('e_EU','r1'): 50,   #               domestic, no border/export friction
+         ('e_Ch','r1'): 130,  #               export controls and re-export licensing
+         ('e_Ru','r1'): 150}  #               export-controlled, sanctions-adjacent
 TC_etr = {(e, t, r): TC_er[(e,r)] for e in E for t in T for r in R}                 #[€/kg enr. Li] broadcast across technologies
 
          
