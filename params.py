@@ -4,8 +4,8 @@ import conversions
 # Flow unit/ commodity: kg - either natural or enriched
 
 # INDEX-SETS
-L = ['l_Au',          'l_Ci',       'l_Ch']             # [Location] Extraction & Processing site 
-#    Australia,      Chile,        China
+L = ['l_Au',    'l_Ci',         'l_Ch',         'l_Ar']            # [Location] Extraction & Processing site 
+#    Australia,   Chile,        China           Argentinia
 
 E = ['e_US',      'e_EU',      'e_Ch',      'e_Ru']     # [Location] Enrichment site
 #    USA,           EU,          China,       Russia
@@ -35,8 +35,8 @@ Q_max_nat = f_ne * D_r1             #[kg nat. Li/yr] upper flow bound
 # Proxy: 2024 mine production (an ANNUAL rate), lithium content. USGS MCS 2025 p.111.
 Cap_l = {'l_Au': 88_000_000,                        #[kg nat. Li/yr] Australia
          'l_Ci': 49_000_000,                        #[kg nat. Li/yr] Chile
-         'l_Ch': 41_000_000}                        #[kg nat. Li/yr] China
-                           
+         'l_Ch': 41_000_000,                        #[kg nat. Li/yr] China
+         'l_Ar': 18_000_000}                        #[kg nat. Li/yr] Argentina, USGS MCS 2025 p.111                         
 
 Cap_e_min_prod  = 1_000    #[kg/yr enr. product] = ICOMAX FOAK target
 Cap_e_prod      = 40_000   #[kg/yr enr. product] = Y-12 historical avg
@@ -76,7 +76,12 @@ TC_le = {('l_Au','e_US'): 1.329,                    #[€/kg nat. Li] tab:TC_let
          ('l_Ch','e_US'): 1.101,
          ('l_Ch','e_EU'): 2.065,
          ('l_Ch','e_Ch'): 0.000,
-         ('l_Ch','e_Ru'): 0.291}
+         ('l_Ch','e_Ru'): 0.291,
+         ('l_Ch','e_Ru'): 0.291,
+         ('l_Ar','e_US'): 1.321,      # CERDI 
+         ('l_Ar','e_EU'): 1.439,      
+         ('l_Ar','e_Ch'): 2.091,      
+         ('l_Ar','e_Ru'): 1.673}
 TC_let = {(l, e, t): TC_le[(l,e)] for l in L for e in E for t in T}   #[€/kg nat. Li] broadcast across technologies (transport is tech-independent)
 
 # Transport Costs TC - basically made up (TODO)
@@ -87,17 +92,17 @@ TC_er = {('e_US','r1'): 90,   #[€/kg enr. Li] allied, moderate export control
 TC_etr = {(e, t, r): TC_er[(e,r)] for e in E for t in T for r in R}                 #[€/kg enr. Li] broadcast across technologies
 
          
-PC_l  = {('l_Au'):89.96,      #[€/kg Li] = Trade-based feed prices =Production costs : from extraxtion&processing site l 
-        ('l_Ci'):52.14,
-        ('l_Ch'):103.04} 
+PC_l  = {('l_Au'):89.94,      #[€/kg Li] = Trade-based feed prices = Production costs : from extraxtion&processing site l 
+        ('l_Ci'):52.13,
+        ('l_Ch'):103.01,
+        ('l_Ar'):51.15}      # carbonate (HS 283691) 41.91 + 9.24 adder, eq:carbonate_adder 
 
 
 EC_e = {'t_chemEx':  2500,                          #[€/kg enr. Li6 product] chemical exchange (liquid)  -- Badea "very high"
         't_dispChr': 1250,                          #[€/kg enr. Li6 product] displacement chromatography -- Badea "moderate"
         't_elChem':  1250,                          #[€/kg enr. Li6 product] electrochemical exchange    -- Acosta 0.77 k$/kg floor -> moderate
-        't_amalgam': 1000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
+        't_amalgam': 2000}                          #[€/kg enr. Li6 product] COLEX/ICOMAX (amalgam)       -- Giegerich; high scen. 2000 (Ward Hg financing)
 EC_et = {(e, t): EC_e[t] for e in E for t in T}     #[€/kg enr. Li6 product] per technology, broadcast across sites; charged on Q_etr (OUTPUT)
-EC_amalgam_high = 2000                              #[€/kg enr. Li6 product] RUN C: COLEX/ICOMAX high scenario (Ward Hg financing)
 
 
 ####################### SR #######################
@@ -154,7 +159,8 @@ WGI_PV = {("Australia"): {'y_24': 0.8,  'av_3': 0.9},         # [-] WGI-PV per m
           ("Chile"):     {'y_24': 0.1,  'av_3': 0.1},
           ("China"):     {'y_24': -0.2, 'av_3': -0.2},
           ("US"):        {'y_24': -0.1, 'av_3': -0.2},
-          ("Russia"):    {'y_24': -0.9, 'av_3': -0.8}}
+          ("Russia"):    {'y_24': -0.9, 'av_3': -0.8},
+          ("Argentina"): {'y_24': -0.2, 'av_3': -0.0}}
 
 WGI_PV['EU'] = {'y_24': conversions.WGI_PV_average({c: v['y_24'] for c, v in WGI_PV_EU.items()}),   # [-] EU = mean over members, added as one more country
                 'av_3': conversions.WGI_PV_average({c: v['av_3'] for c, v in WGI_PV_EU.items()})}
@@ -165,7 +171,8 @@ g_3  = {c: conversions.WGI_PV_to_g(v['av_3']) for c, v in WGI_PV.items()}   # [-
 
 g_extr = {("l_Au"): g_24["Australia"],   # [-] political instability, extraction sites (2024)
           ("l_Ci"): g_24["Chile"],
-          ("l_Ch"): g_24["China"]}
+          ("l_Ch"): g_24["China"],
+          ("l_Ar"): g_24["Argentina"]}
 
 g_enr  = {("e_US"): g_24["US"],           # [-] political instability, enrichment sites (2024)
           ("e_EU"): g_24["EU"],

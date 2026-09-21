@@ -14,7 +14,7 @@ def cost_rule(m):
     return (sum(params.M_e[e] * m.Kcap[e] for e in m.E) +                                       # annualised capital charge
            sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
            sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R )+  # fix transport C
-           sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # fix enrichment&processing C
+           sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # extraction&processing feed cost (nat. Li)
            sum(params.EC_et[e,t] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R))      # enrichment cost product (output=kg enr. Li6) driven
 
 def supply_risk_rule(m):                                    # SR_tot (weights 1 and 1)
