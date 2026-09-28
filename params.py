@@ -84,11 +84,16 @@ TC_le = {('l_Au','e_US'): 1.329,                    #[€/kg nat. Li] tab:TC_let
          ('l_Ar','e_Ru'): 1.673}
 TC_let = {(l, e, t): TC_le[(l,e)] for l in L for e in E for t in T}   #[€/kg nat. Li] broadcast across technologies (transport is tech-independent)
 
-# Transport Costs TC - basically made up (TODO)
-TC_er = {('e_US','r1'): 90,   #[€/kg enr. Li] allied, moderate export control
-         ('e_EU','r1'): 50,   #               domestic, no border/export friction
-         ('e_Ch','r1'): 130,  #               export controls and re-export licensing
-         ('e_Ru','r1'): 150}  #               export-controlled, sanctions-adjacent
+# Transport Costs TC - enrichment site e to reactor r: freight only, UNIFORM across sites.
+#   (3600 $/TEU SCFI comprehensive spot + 250 $/container IMDG hazardous cargo surcharge,
+#    Crowley Tariff 002 Rule 8) / 1.0824 $/EUR / 5200 kg/yr = one surcharged container-equivalent per year.
+#   No distance term (DEMO site undecided). NO country differentiation: export-licensing and sanctions
+#   exposure are country-level institutional differences, already priced on the RISK axis via g_enr -
+#   charging them here too would double-count. A uniform TC_etr is decision-neutral anyway (sum Q_etr = D_r1
+#   is fixed, so it only adds a constant to C_tot). The country-differentiated premium (EU 50 / US 90 /
+#   CN 130 / RU 150 EUR/kg) had no published rate behind it and is kept as a SCENARIO, not a base parameter.
+TC_er_freight = 0.68          #[€/kg enr. Li] (3600 + 250) / 1.0824 / 5200
+TC_er = {(e, r): TC_er_freight for e in E for r in R}
 TC_etr = {(e, t, r): TC_er[(e,r)] for e in E for t in T for r in R}                 #[€/kg enr. Li] broadcast across technologies
 
          
@@ -127,54 +132,54 @@ s_enr_k = {("e_US"): 1/3,                 #[-] assumed enrichment-market shares;
            ("e_EU"): 0}
 
 
-WGI_PV_EU = {("Austria"):     {'y_24': 0.5, 'av_3': 0.6},     # [-] WGI-PV per EU country {'y_24': 2024, 'av_3': 3-yr avg 2022-24} high = stable.  [WGI2025]
-             ("Belgium"):     {'y_24': 0.1, 'av_3': 0.2},
-             ("Bulgaria"):    {'y_24': 0.0, 'av_3': 0.2},
-             ("Croatia"):     {'y_24': 0.6, 'av_3': 0.7},
-             ("Cyprus"):      {'y_24': 0.4, 'av_3': 0.4},
-             ("Czechia"):     {'y_24': 1.0, 'av_3': 1.0},
-             ("Denmark"):     {'y_24': 0.8, 'av_3': 0.8},
-             ("Estonia"):     {'y_24': 0.7, 'av_3': 0.8},
-             ("Finland"):     {'y_24': 0.8, 'av_3': 0.9},
-             ("France"):      {'y_24': -0.2, 'av_3': -0.1},
-             ("Germany"):     {'y_24': 0.1, 'av_3': 0.4},
-             ("Greece"):      {'y_24': 0.1, 'av_3': 0.3},
-             ("Hungary"):     {'y_24': 0.4, 'av_3': 0.6},
-             ("Ireland"):     {'y_24': 0.7, 'av_3': 0.8},
-             ("Italy"):       {'y_24': 0.3, 'av_3': 0.4},
-             ("Latvia"):      {'y_24': 0.6, 'av_3': 0.7},
-             ("Lithuania"):   {'y_24': 0.9, 'av_3': 1.0},
-             ("Luxembourg"):  {'y_24': 1.1, 'av_3': 1.0},
-             ("Malta"):       {'y_24': 0.8, 'av_3': 0.9},
-             ("Netherlands"): {'y_24': 0.4, 'av_3': 0.6},
-             ("Poland"):      {'y_24': 0.5, 'av_3': 0.5},
-             ("Portugal"):    {'y_24': 0.5, 'av_3': 0.7},
-             ("Romania"):     {'y_24': 0.2, 'av_3': 0.4},
-             ("Slovakia"):    {'y_24': 0.6, 'av_3': 0.6},
-             ("Slovenia"):    {'y_24': 0.7, 'av_3': 0.8},
-             ("Spain"):       {'y_24': 0.0, 'av_3': 0.1},
-             ("Sweden"):      {'y_24': 0.6, 'av_3': 0.8}}
+WGI_PV_EU = {("Austria"):     {'y_25':  0.531158, 'av_3':  0.616873},   # [-] WGI-PV per EU country {'y_25': 2025, 'av_3': 3-yr avg 2023-25} high = stable.  [WGI2026]
+             ("Belgium"):     {'y_25':  0.172754, 'av_3':  0.183750},   #     Governance estimate, sheet "pv" of the 2026 release (Data/wgidataset_with_sourcedata-2026.xlsx).
+             ("Bulgaria"):    {'y_25':  0.245054, 'av_3':  0.239837},   #     Full precision on purpose: the EU mean below is formed from unrounded members.
+             ("Croatia"):     {'y_25':  0.684057, 'av_3':  0.694695},
+             ("Cyprus"):      {'y_25':  0.440780, 'av_3':  0.409945},
+             ("Czechia"):     {'y_25':  1.020596, 'av_3':  1.060902},
+             ("Denmark"):     {'y_25':  0.791270, 'av_3':  0.839565},
+             ("Estonia"):     {'y_25':  0.887544, 'av_3':  0.852241},
+             ("Finland"):     {'y_25':  0.955030, 'av_3':  0.870956},
+             ("France"):      {'y_25': -0.092230, 'av_3': -0.082656},
+             ("Germany"):     {'y_25':  0.208281, 'av_3':  0.312588},
+             ("Greece"):      {'y_25':  0.276693, 'av_3':  0.309057},
+             ("Hungary"):     {'y_25':  0.509335, 'av_3':  0.565445},
+             ("Ireland"):     {'y_25':  0.747951, 'av_3':  0.802160},
+             ("Italy"):       {'y_25':  0.456738, 'av_3':  0.454672},
+             ("Latvia"):      {'y_25':  0.809011, 'av_3':  0.827202},
+             ("Lithuania"):   {'y_25':  0.932903, 'av_3':  0.962785},
+             ("Luxembourg"):  {'y_25':  1.192860, 'av_3':  1.104956},
+             ("Malta"):       {'y_25':  1.036044, 'av_3':  0.964499},
+             ("Netherlands"): {'y_25':  0.534518, 'av_3':  0.578149},
+             ("Poland"):      {'y_25':  0.693775, 'av_3':  0.623891},
+             ("Portugal"):    {'y_25':  0.702010, 'av_3':  0.716473},
+             ("Romania"):     {'y_25':  0.206785, 'av_3':  0.336770},
+             ("Slovakia"):    {'y_25':  0.666500, 'av_3':  0.629187},   # WGI name: "Slovak Republic"
+             ("Slovenia"):    {'y_25':  0.877008, 'av_3':  0.869785},
+             ("Spain"):       {'y_25':  0.178328, 'av_3':  0.163813},
+             ("Sweden"):      {'y_25':  0.852460, 'av_3':  0.772306}}
 
-WGI_PV = {("Australia"): {'y_24': 0.8,  'av_3': 0.9},         # [-] WGI-PV per model country. high = stable.  [WGI2025]
-          ("Chile"):     {'y_24': 0.1,  'av_3': 0.1},
-          ("China"):     {'y_24': -0.2, 'av_3': -0.2},
-          ("US"):        {'y_24': -0.1, 'av_3': -0.2},
-          ("Russia"):    {'y_24': -0.9, 'av_3': -0.8},
-          ("Argentina"): {'y_24': -0.2, 'av_3': -0.0}}
+WGI_PV = {("Australia"): {'y_25':  0.780585, 'av_3':  0.853335},       # [-] WGI-PV per model country. high = stable.  [WGI2026]
+          ("Chile"):     {'y_25':  0.170603, 'av_3':  0.188075},
+          ("China"):     {'y_25':  0.022475, 'av_3': -0.077793},
+          ("US"):        {'y_25': -0.302082, 'av_3': -0.186962},
+          ("Russia"):    {'y_25': -0.944959, 'av_3': -0.904771},
+          ("Argentina"): {'y_25':  0.162060, 'av_3':  0.050308}}
 
-WGI_PV['EU'] = {'y_24': conversions.WGI_PV_average({c: v['y_24'] for c, v in WGI_PV_EU.items()}),   # [-] EU = mean over members, added as one more country
+WGI_PV['EU'] = {'y_25': conversions.WGI_PV_average({c: v['y_25'] for c, v in WGI_PV_EU.items()}),   # [-] EU = mean over members, added as one more country
                 'av_3': conversions.WGI_PV_average({c: v['av_3'] for c, v in WGI_PV_EU.items()})}
 
                                                                             # political instability indicator g = (2.5 - PV)/5, high = risky
-g_24 = {c: conversions.WGI_PV_to_g(v['y_24']) for c, v in WGI_PV.items()}   # [-] year 2024
-g_3  = {c: conversions.WGI_PV_to_g(v['av_3']) for c, v in WGI_PV.items()}   # [-] 3-yr avg 2022-24
+g_25 = {c: conversions.WGI_PV_to_g(v['y_25']) for c, v in WGI_PV.items()}   # [-] year 2025
+g_3  = {c: conversions.WGI_PV_to_g(v['av_3']) for c, v in WGI_PV.items()}   # [-] 3-yr avg 2023-25
 
-g_extr = {("l_Au"): g_24["Australia"],   # [-] political instability, extraction sites (2024)
-          ("l_Ci"): g_24["Chile"],
-          ("l_Ch"): g_24["China"],
-          ("l_Ar"): g_24["Argentina"]}
+g_extr = {("l_Au"): g_25["Australia"],   # [-] political instability, extraction sites (2025)
+          ("l_Ci"): g_25["Chile"],
+          ("l_Ch"): g_25["China"],
+          ("l_Ar"): g_25["Argentina"]}
 
-g_enr  = {("e_US"): g_24["US"],           # [-] political instability, enrichment sites (2024)
-          ("e_EU"): g_24["EU"],
-          ("e_Ch"): g_24["China"],        # same China PV as l_Ch
-          ("e_Ru"): g_24["Russia"]}
+g_enr  = {("e_US"): g_25["US"],           # [-] political instability, enrichment sites (2025)
+          ("e_EU"): g_25["EU"],
+          ("e_Ch"): g_25["China"],        # same China PV as l_Ch
+          ("e_Ru"): g_25["Russia"]}
