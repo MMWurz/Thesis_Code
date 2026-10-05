@@ -1,7 +1,7 @@
 ####################### UNIT CONVERSION #######################
 
 # Li mass fractions (natural isotopic abundance)
-USD_TO_EUR = 1 / 1.082            # ECB 2024 annual avg EUR/USD = 1.082
+USD_TO_EUR = 1 / 1.0824          # ECB 2024 annual avg EUR/USD = 1.0824
 
 w_Li_LI2CO3      = 0.188      # [kg Li / kg Li2CO3
 w_Li_LIOH_H2O    = 0.165      # [kg Li / kg LiOH·H2O
