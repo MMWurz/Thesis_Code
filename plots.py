@@ -1,40 +1,30 @@
 # Visualization: Pareto front plots, supply chain flow diagrams, and sensitivity analysis charts for dual-objective results.
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
-from matplotlib.patches import Rectangle, FancyArrowPatch
+from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch
 from matplotlib.ticker import FuncFormatter
 
 import params
-import supply_risk
 import model
 
 TOL = 1e-6
 
 ####################### STYLE #######################
-# One sequential blue ramp carries political instability g; one warm accent carries the chosen route.
-# Ramp starts at step 250 - anything lighter drops below 2:1 contrast on white and reads as an empty box.
+# Structure wears the echelon colours of the thesis schematic (L grey, E green, R purple).
+# Data wears one sequential grey ramp: political instability g. Light enough throughout
+# that all node text stays black; its pale end needs the echelon outline to show on white.
 W_TEXT = 5.79                           # [in] thesis \textwidth = 418.26 pt = 14.70 cm
-INK, INK2, FAINT = '#0b0b0b', '#52514e', '#dcdcd8'
-ACCENT = '#eb6834'                      # active route only - never used on a node
-RISK_CMAP = LinearSegmentedColormap.from_list(
-    'risk', ['#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#104281'])
-G_LIM = (0.30, 0.70)                    # fixed scale: every panel must share one colour meaning
-FS = {'node': 8, 'num': 7, 'slot': 7, 'box': 8, 'tick': 7}
+INK, INK2, FAINT = '#1a1a1a', '#55534f', '#e2e2e2'
+ROUTE = INK                             # chosen links + outlines of chosen nodes
+ECH = {'L': '#8c8c8c', 'E': '#64b719', 'R': '#822181'}         # strokes, sampled from the schematic
+ECH_TXT = {'L': '#6e6e6e', 'E': '#4b8a13', 'R': '#822181'}     # darker twins: readable as 7-8 pt text
+RISK_CMAP = LinearSegmentedColormap.from_list(                  # darkest step: black text still 6:1
+    'risk', ['#ececec', '#d8d8d8', '#bfbfbf', '#a4a4a4', '#898989'])
+G_NORM = Normalize(0.33, 0.70)          # fixed scale spanning the data -> every figure shares one meaning
+FS = {'icon': 11, 'node': 8, 'num': 7}
 
-# SR bar reference scale: what the two echelons could attain at their safest / riskiest extreme
-SR_FLOOR = (supply_risk.HHI_extr * min(params.g_extr.values())
-            + supply_risk.HHI_enr * min(params.g_enr.values()))
-SR_CEIL = (supply_risk.HHI_extr * max(params.g_extr.values())
-           + supply_risk.HHI_enr * max(params.g_enr.values()))
-
-#  display names; anything missing falls back to the bare set key, so adding or
-#  renaming a site/technology in params.py can never break the figure
-NAME = {'l_Au': 'Australia', 'l_Ci': 'Chile', 'l_Ch': 'China',
-        'l_Ar': 'Argentina', 'l_Fr': 'France',
-        'e_US': 'USA', 'e_EU': 'EU', 'e_Ch': 'China', 'e_Ru': 'Russia',
-        'r1': 'DEMO',
-        't_chemEx': 'chem. exchange', 't_dispEl': 'displ./electrochem.',
-        't_amalgam': 'amalgam (COLEX)'}
+NAME = {'r1': 'DEMO',                   # everything else shows its set-key suffix: l_Au -> Au
+        't_dispEl': 'dispChr\nelChem'}  # two routes at equal cost, merged into one set member
 
 
 def _name(key):
@@ -43,11 +33,6 @@ def _name(key):
 
 def _num(x, dec=0):                     # 89440 -> "89 440", thesis number style
     return f"{x:,.{dec}f}".replace(",", " ")
-
-
-def _ink_on(rgba):                      # label ink that stays readable on the node fill
-    lum = 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2]
-    return INK if lum > 0.55 else 'white'
 
 
 ####################### PARETO FRONT #######################
@@ -85,287 +70,168 @@ def snapshot(m, eps=None):
     }
 
 
-#  Box heights are given in POINTS and converted to axes fractions per figure, so the same
-#  layout holds whether the network gets a full page or one row of a small multiple.
-PT = {'full':    dict(node=31, gap=9, head=14, slot=11, pad=4, reac=38),
-      'compact': dict(node=22, gap=7, head=13, body=12,         reac=34)}
-COL = {'full':    {'L': (0.02, 0.17), 'E': (0.40, 0.35), 'R': (0.84, 0.15)},   # (x, width)
-       'compact': {'L': (0.02, 0.20), 'E': (0.40, 0.35), 'R': (0.84, 0.14)}}
-BAND = (0.02, 0.88)                     # drawing band; the header line sits above it
-LOCATOR = {'full': [0.825, 0.045, 0.175, 0.27], 'compact': [0.80, 0.02, 0.20, 0.36]}
+#  Layout in INCHES: the network axes is scaled 1 data unit = 1 inch, so rounded corners stay
+#  round and a point is always 1/72. Columns are (left, right) edges of the group boxes.
+X = {'L': (0.10, 1.20), 'e': (2.15, 3.00), 't': (3.22, 4.07), 'R': (4.75, 5.65)}
+X_E = (2.05, 4.17)                      # outer enrichment box around the e and t columns
+NODE_H, NODE_GAP, PAD, NODE_INSET = 0.24, 0.08, 0.08, 0.08
+R_ICON = 0.16
+LAB_OFF = 0.60                          # figure top -> group-label row (icons sit above)
 
 
-def _unit(ax):                          # axes fraction per typographic point
-    return 1.0 / (72.0 * ax.get_position().height * ax.figure.get_size_inches()[1])
+def _stack_h(n):
+    return n * NODE_H + (n - 1) * NODE_GAP
 
 
-def _layout(ax, compact):
-    """Node boxes in axes coordinates. Both columns sorted by g, safest on top, so that
-    'the route moves up' means 'safer' - and so panels stay comparable."""
-    u, pt, col = _unit(ax), PT['compact' if compact else 'full'], COL['compact' if compact else 'full']
-    h_src = pt['node'] * u
-    h_pl = (pt['head'] + (pt['body'] if compact else len(params.T) * pt['slot'] + pt['pad'])) * u
-
-    box = {}
-    x, w = col['L']
-    for l, y in _stack(sorted(params.L, key=lambda k: params.g_extr[k]), h_src, pt['gap'] * u).items():
-        box[l] = (x, y, w, h_src)
-    x, w = col['E']
-    for e, y in _stack(sorted(params.E, key=lambda k: params.g_enr[k]), h_pl, pt['gap'] * u).items():
-        box[e] = (x, y, w, h_pl)
-    x, w = col['R']
-    cy = 0.64 if compact else 0.5                                # compact: lift it clear of the inset
-    box['r1'] = (x, cy - pt['reac'] * u / 2, w, pt['reac'] * u)
-    return box, Normalize(*G_LIM), u, pt
+def _net_height():
+    """Grows with the largest set, so adding a country or site in params.py resizes the
+    figure instead of overflowing it."""
+    n_max = max(len(params.L), len(params.E), len(params.T), len(params.R))
+    return LAB_OFF + 0.24 + _stack_h(n_max) + 2 * PAD
 
 
-def _stack(keys, h, gap):                # vertical stack, first key on top; returns bottom-y per key
-    n = len(keys)
-    y0 = BAND[0] + ((BAND[1] - BAND[0]) - (n * h + (n - 1) * gap)) / 2
-    return {k: y0 + (n - 1 - i) * (h + gap) for i, k in enumerate(keys)}
+def _box(ax, x0, y0, x1, y1, edge, lw, face='none', r=0.08, z=1):
+    ax.add_patch(FancyBboxPatch((x0, y0), x1 - x0, y1 - y0, boxstyle=f'round,pad=0,rounding_size={r}',
+                                facecolor=face, edgecolor=edge, linewidth=lw, zorder=z))
 
 
-def _source_node(ax, rect, u, g, norm, name, lines, active, unused_alpha):
-    x, y, w, h = rect
-    rgba = RISK_CMAP(norm(g))
-    ax.add_patch(Rectangle((x, y), w, h, facecolor=rgba, edgecolor=INK if active else FAINT,
-                           linewidth=1.4 if active else 0.5,
-                           alpha=1.0 if active else unused_alpha, zorder=3))
-    ink = _ink_on(rgba)
-    ax.text(x + w / 2, y + h - 3 * u, name, ha='center', va='top', zorder=5,
-            fontsize=FS['node'], color=ink, fontweight='bold' if active else 'normal')
-    for i, ln in enumerate(lines):
-        ax.text(x + w / 2, y + h - (13 + 9.5 * i) * u, ln, ha='center', va='top',
-                fontsize=FS['num'], color=ink, zorder=5)
+def _column(keys, col, y_mid):         # node rectangles, first key on top, centred on y_mid
+    x0, x1 = X[col][0] + NODE_INSET, X[col][1] - NODE_INSET
+    top = y_mid + _stack_h(len(keys)) / 2
+    return {k: (x0, top - i * (NODE_H + NODE_GAP) - NODE_H, x1, top - i * (NODE_H + NODE_GAP))
+            for i, k in enumerate(keys)}
 
 
-def _plant_card(ax, rect, u, pt, e, norm, snap, compact, unused_alpha):
-    """Coloured header band carries g; the white body carries the technology slots -
-    the choice sits INSIDE the site, it is not an echelon of its own."""
-    x, y, w, h = rect
-    built = e in snap['built']
-    chosen = snap['built'].get(e)
-    rgba = RISK_CMAP(norm(params.g_enr[e]))
-    a = 1.0 if built else unused_alpha
-    hd = pt['head'] * u
-    yh = y + h - hd                                                  # header bottom edge
-
-    ax.add_patch(Rectangle((x, y), w, h - hd, facecolor='white', edgecolor='none', alpha=a, zorder=2))
-    ax.add_patch(Rectangle((x, yh), w, hd, facecolor=rgba, edgecolor='none', alpha=a, zorder=3))
-    ax.add_patch(Rectangle((x, y), w, h, facecolor='none', zorder=4,
-                           edgecolor=INK if built else FAINT, linewidth=1.4 if built else 0.5))
-    ink = _ink_on(rgba)
-    ax.text(x + 0.012, yh + hd / 2, f"{_name(e)}  ({e})", ha='left', va='center', zorder=5,
-            fontsize=FS['node'], color=ink, fontweight='bold' if built else 'normal')
-    ax.text(x + w - 0.012, yh + hd / 2, f"g {params.g_enr[e]:.3f}  ·  $f_e$ {params.f_e[e]:.2f}",
-            ha='right', va='center', fontsize=FS['num'], color=ink, zorder=5)
-
-    if compact:
-        ax.text(x + w / 2, y + (h - hd) / 2, _name(chosen) if built else '– not built –',
-                ha='center', va='center', fontsize=FS['slot'], zorder=5,
-                color=INK if built else INK2, fontweight='bold' if built else 'normal')
+def _node(ax, rect, label, chosen, edge, g=None):
+    """g given -> filled on the risk ramp, g printed right; no g -> white.
+    Unchosen nodes keep a thin echelon outline - the ramp's pale end would vanish on white."""
+    x0, y0, x1, y1 = rect
+    face = RISK_CMAP(G_NORM(g)) if g is not None else 'white'
+    ec, lw = (ROUTE, 1.6) if chosen else (edge, 0.8)
+    _box(ax, x0, y0, x1, y1, ec, lw, face=face, r=0.04, z=4)
+    ink = INK if (chosen or g is not None) else INK2
+    yc = (y0 + y1) / 2
+    weight = 'bold' if chosen else 'normal'
+    if g is None:
+        ax.text((x0 + x1) / 2, yc, label, ha='center', va='center', linespacing=1.0,
+                fontsize=FS['num'] if '\n' in label else FS['node'],    # two names -> smaller, 2 lines
+                color=ink, fontweight=weight, zorder=6)
         return
-
-    tied = [t for t in params.T                                      # equal cost -> solver picks freely
-            if chosen and t != chosen and params.EC_e[t] == params.EC_e[chosen]]
-    for i, t in enumerate(params.T):
-        sy = yh - (i + 1) * pt['slot'] * u                           # slot bottom
-        cy = sy + pt['slot'] * u / 2
-        on = (t == chosen)
-        ax.add_patch(Rectangle((x + 0.012, sy + 1 * u), w - 0.024, (pt['slot'] - 2) * u, zorder=4,
-                               facecolor='#fdece4' if on else 'none',
-                               edgecolor=ACCENT if on else FAINT, linewidth=0.9 if on else 0.4))
-        mark = '✓' if on else ('=' if t in tied else '')             # '=' : cost-tied, choice arbitrary
-        ax.text(x + 0.022, cy, mark, ha='left', va='center', zorder=5,
-                fontsize=FS['slot'], color=ACCENT if on else INK2, fontweight='bold')
-        ax.text(x + 0.042, cy, _name(t), ha='left', va='center', zorder=5,     # no bold: keeps the
-                fontsize=FS['slot'], color=INK if on else INK2,                # two columns clear
-                alpha=1.0 if on else 0.7)
-        ax.text(x + w - 0.018, cy, _num(params.EC_e[t]) + ' €/kg', ha='right', va='center',
-                fontsize=FS['num'], color=INK if on else INK2,
-                alpha=1.0 if on else 0.7, zorder=5)
+    ax.text(x0 + 0.06, yc, label, ha='left', va='center', fontsize=FS['node'],
+            color=ink, fontweight=weight, zorder=6)
+    ax.text(x1 - 0.06, yc, f"{g:.3f}", ha='right', va='center', fontsize=FS['num'], color=ink, zorder=6)
 
 
-def _edge(ax, p0, p1, share=None):
-    """Grey hairline for an unused link, accent arrow scaled by flow for a used one."""
-    if share is None:
-        ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle='-', color=FAINT, linewidth=0.5,
-                                     connectionstyle='arc3,rad=0.04', zorder=1))
-    else:
-        ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle='-|>', color=ACCENT,
-                                     linewidth=0.9 + 2.4 * share, mutation_scale=9,
-                                     connectionstyle='arc3,rad=0.04', shrinkA=0, shrinkB=1,
-                                     zorder=6))
+def _link(ax, p0, p1, width=None, head=True):
+    """Hairline for an option, thick route line (width in pt) for what was chosen."""
+    if width is None:
+        ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle='-', color=FAINT, linewidth=0.45, zorder=2))
+        return
+    ax.add_patch(FancyArrowPatch(p0, p1, arrowstyle='-|>' if head else '-', color=ROUTE,
+                                 linewidth=width, mutation_scale=8, shrinkA=0, shrinkB=0.5,
+                                 joinstyle='miter', capstyle='butt', zorder=5))
 
 
-def _draw_network(ax, snap, compact=False, unused_alpha=1.0, split_in_header=False):
-    box, norm, u, pt = _layout(ax, compact)
-    ax.set_xlim(0, 1), ax.set_ylim(0, 1)
+def _header(ax, H):
+    """Echelon icons with their letter, centred over each group - as in the schematic."""
+    cy = H - 0.06 - R_ICON
+    for k, cx in {'L': sum(X['L']) / 2, 'E': sum(X_E) / 2, 'R': sum(X['R']) / 2}.items():
+        ax.add_patch(Circle((cx, cy), R_ICON, facecolor='white', edgecolor=ECH[k], linewidth=1.2, zorder=3))
+        ax.text(cx, cy, k, ha='center', va='center', fontsize=FS['icon'], color=ECH_TXT[k], zorder=4)
+
+
+def _draw_network(ax, snap, H):
+    ax.set_xlim(0, W_TEXT), ax.set_ylim(0, H)
     ax.set_axis_off()
-    feed_tot = sum(snap['flow_le'].values())
+    _header(ax, H)
+
+    # group boxes - one row of labels, all inner boxes share top and bottom
+    lab_y = H - LAB_OFF                                              # label row, inside the outer E box
+    top = lab_y - 0.10
+    bot = top - _stack_h(max(len(params.L), len(params.E), len(params.T))) - 2 * PAD
+    y_mid = (top + bot) / 2
+    _box(ax, X_E[0], bot - 0.06, X_E[1], lab_y + 0.13, ECH['E'], 1.0)            # outer enrichment box
+    for col, ech, lab in [('L', 'L', 'Location $l$'), ('e', 'E', 'Location $e$'),
+                          ('t', 'E', 'Technology $t$')]:
+        _box(ax, X[col][0], bot, X[col][1], top, ECH[ech], 1.0)
+        ax.text(sum(X[col]) / 2, lab_y, lab, ha='center', va='center', fontsize=FS['num'],
+                color=ECH_TXT[ech])
+    r_half = _stack_h(len(params.R)) / 2 + PAD                       # reactor box hugs its node(s)
+    _box(ax, X['R'][0], y_mid - r_half, X['R'][1], y_mid + r_half, ECH['R'], 1.0)
+
+    # nodes - every option is drawn, sorted safest on top, so the figure shows the risk landscape
+    n_l = _column(sorted(params.L, key=lambda k: params.g_extr[k]), 'L', y_mid)
+    n_e = _column(sorted(params.E, key=lambda k: params.g_enr[k]), 'e', y_mid)
+    n_t = _column(list(params.T), 't', y_mid)
+    n_r = _column(list(params.R), 'R', y_mid)
+    built = snap['built']                                            # {e: t}
     sourcing = {l for l, _ in snap['flow_le']}
+    for l, rc in n_l.items():
+        _node(ax, rc, _name(l), l in sourcing, ECH['L'], g=params.g_extr[l])
+    for e, rc in n_e.items():
+        _node(ax, rc, _name(e), e in built, ECH['E'], g=params.g_enr[e])
+    for t, rc in n_t.items():
+        _node(ax, rc, _name(t), t in built.values(), ECH['E'])
+    for r, rc in n_r.items():
+        _node(ax, rc, _name(r), True, ECH['R'])
 
-    # every option is drawn: the figure shows the risk landscape, not only the winner
-    for l in params.L:
-        lines = ([f"g {params.g_extr[l]:.3f}  ·  {params.PC_l[l]:.2f} €/kg"] if compact else
-                 [f"g {params.g_extr[l]:.3f}", f"{params.PC_l[l]:.2f} €/kg"])
-        _source_node(ax, box[l], u, params.g_extr[l], norm, _name(l), lines,
-                     l in sourcing, unused_alpha)
-    for e in params.E:
-        _plant_card(ax, box[e], u, pt, e, norm, snap, compact, unused_alpha)
+    right = lambda rc: (rc[2], (rc[1] + rc[3]) / 2)                 # noqa: E731 - edge midpoints
+    left = lambda rc: (rc[0], (rc[1] + rc[3]) / 2)                  # noqa: E731
 
-    rx, ry, rw, rh = box['r1']                                       # reactor carries no g -> uncoloured
-    ax.add_patch(Rectangle((rx, ry), rw, rh, facecolor='white', edgecolor=INK,
-                           linewidth=1.4, zorder=3))
-    ax.text(rx + rw / 2, ry + rh - 4 * u, _name('r1'), ha='center', va='top', zorder=5,
-            fontsize=FS['node'], color=INK, fontweight='bold')
-    ax.text(rx + rw / 2, ry + rh - 15 * u,
-            f"{_num(params.D_r1)} kg/yr\nenr. Li" if compact else f"{_num(params.D_r1)}\nkg enr. Li/yr",
-            ha='center', va='top', fontsize=FS['num'], color=INK2, zorder=5, linespacing=1.25)
-
-    # links L -> E : all |L|x|E| possible, the used ones scaled by flow share
-    for l in params.L:
-        lx, ly, lw_, lh = box[l]
-        for e in params.E:
-            ex, ey, ew, eh = box[e]
-            p0, p1 = (lx + lw_, ly + lh / 2), (ex, ey + eh / 2)
+    # L -> e : all options as hairlines, the chosen ones scaled by share of the feed
+    feed = sum(snap['flow_le'].values())
+    for l in n_l:
+        for e in n_e:
             q = snap['flow_le'].get((l, e))
-            _edge(ax, p0, p1, None if q is None else q / feed_tot)
+            p0, p1 = right(n_l[l]), left(n_e[e])
+            _link(ax, p0, p1, None if q is None else 0.8 + 2.2 * q / feed)
             if q:
-                mx, my = p0[0] + 0.58 * (p1[0] - p0[0]), p0[1] + 0.58 * (p1[1] - p0[1])
-                ax.text(mx, my, f"{q / feed_tot:.0%}\n{_num(q)} kg/yr", ha='center', va='center',
-                        fontsize=FS['num'], color=INK, linespacing=1.25, zorder=7,
-                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='none'))
+                mx, my = p0[0] + 0.45 * (p1[0] - p0[0]), p0[1] + 0.45 * (p1[1] - p0[1])
+                ax.text(mx, my, f"{100 * q / feed:.0f} %", ha='center', va='center', fontsize=FS['num'],
+                        color=INK, zorder=7,
+                        bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='none'))
 
-    # links E -> R : leave from the chosen technology slot, so the route stays traceable
-    for e in params.E:
-        ex, ey, ew, eh = box[e]
-        q = snap['flow_er'].get(e)
-        y_out = ey + eh / 2
-        if q and not compact:
-            i = list(params.T).index(snap['built'][e])
-            y_out = ey + eh - pt['head'] * u - (i + 0.5) * pt['slot'] * u
-        _edge(ax, (ex + ew, y_out), (rx, ry + rh / 2), None if q is None else 1.0)
+    # e - t : which technology the built site runs (a pairing, not a transport link -> no head)
+    d_tot = sum(snap['flow_er'].values())
+    for e, t in built.items():
+        _link(ax, right(n_e[e]), left(n_t[t]), 0.8 + 2.2 * snap['flow_er'].get(e, 0) / d_tot, head=False)
 
-    # header - what trade-off point this is
-    eps = snap.get('eps')
-    head = (f"$\\varepsilon$ = {eps:.4f}      " if eps is not None else "")
-    head += f"cost = {snap['cost']/1e6:.2f} M€/yr      SR$_{{norm}}$ = {snap['sr']:.4f}"
-    head += (f" = {snap['sr_extr']:.3f} extr. + {snap['sr_enr']:.3f} enr."
-             if split_in_header else "      $w_L = w_{ET}$ = 1")
-    ax.text(0.0, 1.0, head, ha='left', va='top', fontsize=FS['box'], color=INK, zorder=8)
-    return norm
+    # t -> R : hairline per technology, the used one(s) as route
+    for t in n_t:
+        q = sum(snap['flow_er'].get(e, 0) for e, tt in built.items() if tt == t)
+        for r in n_r:
+            _link(ax, right(n_t[t]), left(n_r[r]), 0.8 + 2.2 * q / d_tot if q else None)
 
 
-def _draw_sr_bar(ax, snap):
-    """Where the risk sits: the two echelons stacked against what they could attain."""
-    ax.set_xlim(0, SR_CEIL * 1.02), ax.set_ylim(0, 1)
-    ax.add_patch(Rectangle((0, 0.25), SR_CEIL, 0.5, facecolor='#f2f1ee', edgecolor='none', zorder=1))
-    gap = SR_CEIL * 0.004                                            # 2px surface gap, no borders
-    for x0, wd, col, lab in [(0, snap['sr_extr'], '#5598e7', 'extraction'),
-                             (snap['sr_extr'] + gap, snap['sr_enr'] - gap, '#104281', 'enrichment')]:
-        ax.add_patch(Rectangle((x0, 0.25), wd, 0.5, facecolor=col, edgecolor='none', zorder=2))
-        ax.text(x0 + wd / 2, 0.5, f"{lab} {wd + (gap if x0 else 0):.3f}", ha='center', va='center',
-                fontsize=FS['tick'], color='white', zorder=3)
-    if snap.get('eps') is not None:                                  # SR lands below eps: the slack
-        ax.plot([snap['eps']] * 2, [0.12, 0.88], color=INK, lw=0.9, zorder=4)
-        ax.text(snap['eps'], 0.95, '$\\varepsilon$', ha='center', va='bottom',
-                fontsize=FS['tick'], color=INK)
-    ax.set_yticks([])
-    ax.set_xticks([0, SR_FLOOR, snap['sr'], SR_CEIL])
-    ax.set_xticklabels(['0', f"floor\n{SR_FLOOR:.3f}", f"SR\n{snap['sr']:.3f}",
-                        f"ceiling\n{SR_CEIL:.3f}"], fontsize=FS['tick'], color=INK2)
-    ax.tick_params(length=2, pad=1.5, colors=INK2)
-    for s in ('top', 'right', 'left'):
-        ax.spines[s].set_visible(False)
-    ax.spines['bottom'].set_linewidth(0.5), ax.spines['bottom'].set_color(FAINT)
+#  legend block under the network: cost and SR, nothing else
+
+def _draw_legend(ax, snap, h):
+    ax.set_xlim(0, W_TEXT), ax.set_ylim(0, h)
+    ax.set_axis_off()
+    y = h / 2                                                        # one line: cost left, SR right
+    ax.text(0.12, y, f"cost   {snap['cost'] / 1e6:.2f} M€/yr", ha='left', va='center',
+            fontsize=FS['node'], color=INK, fontweight='bold')
+    ax.text(W_TEXT - 0.12, y, rf"$\mathbf{{SR_{{norm}}\ \ {snap['sr']:.3f}}}$   (SR$_L$ = {snap['sr_extr']:.3f},  "
+            f"SR$_E$ = {snap['sr_enr']:.3f})", ha='right', va='center', fontsize=FS['node'], color=INK)
 
 
-def _draw_locator(ax, front, snap, bare=False):
-    """Mini front in the corner: which trade-off point is on display."""
-    pts = sorted(set(front))
-    ax.set_facecolor('white'), ax.set_zorder(9), ax.patch.set_alpha(1.0)  # sits above the grey links
-    ax.scatter([s for _, s in pts], [c / 1e6 for c, _ in pts], s=9, facecolor='none',
-               edgecolor=INK2, linewidth=0.6, zorder=2)
-    ax.scatter([snap['sr']], [snap['cost'] / 1e6], s=22, color=ACCENT, zorder=3)
-    ax.margins(0.12)                                                 # keep corner points off the spines
-    for s in ('top', 'right'):
-        ax.spines[s].set_visible(False)
-    for s in ('bottom', 'left'):
-        ax.spines[s].set_linewidth(0.5), ax.spines[s].set_color(FAINT)
-    if bare:                                                         # too small for numbers
-        ax.set_xticks([]), ax.set_yticks([])
-        ax.set_xlabel('SR$_{norm}$ →', fontsize=FS['tick'], color=INK2, labelpad=1)
-        ax.set_ylabel('cost →', fontsize=FS['tick'], color=INK2, labelpad=1)
-        return
-    ax.set_xlabel('SR$_{norm}$ [–]', fontsize=FS['tick'], labelpad=1)
-    ax.set_ylabel('cost [M€/yr]', fontsize=FS['tick'], labelpad=1)
-    ax.tick_params(labelsize=FS['tick'], length=2, pad=1, colors=INK2)
-    ax.locator_params(nbins=3)                                       # a locator, not a readable chart
-
-
-def _risk_colourbar(fig, cax, norm):
-    cb = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=RISK_CMAP), cax=cax,
-                      orientation='horizontal')
-    cb.set_label('political instability  g = (2.5 − WGI-PV)/5   [–]      safe → risky',
-                 fontsize=FS['tick'], color=INK2, labelpad=2)
-    cb.ax.tick_params(labelsize=FS['tick'], length=2, pad=1.5, colors=INK2)
+def _risk_colourbar(fig, cax):
+    cb = fig.colorbar(plt.cm.ScalarMappable(norm=G_NORM, cmap=RISK_CMAP), cax=cax, orientation='horizontal')
+    cb.set_label('political instability $g$ [–]        safe  →  risky', fontsize=FS['num'], color=INK2, labelpad=2)
+    cb.ax.tick_params(labelsize=FS['num'], length=2, pad=1.5, colors=INK2)
     cb.outline.set_visible(False)
 
 
-#  figure assembly - rows are placed in inches, top down, so nothing depends on gridspec guessing
-H = {'bar': 0.40, 'cb': 0.22, 'gap': 0.20, 'labels': 0.42, 'top': 0.12}
-
-
-def _net_height(compact):
-    """Network height [in] that makes the tallest column fit the band exactly - so adding a
-    country, a site or a technology in params.py resizes the figure instead of overflowing it."""
-    pt = PT['compact' if compact else 'full']
-    card = pt['head'] + (pt['body'] if compact else len(params.T) * pt['slot'] + pt['pad'])
-    tallest = max(len(params.L) * pt['node'] + (len(params.L) - 1) * pt['gap'],
-                  len(params.E) * card + (len(params.E) - 1) * pt['gap'], pt['reac'])
-    return tallest / (BAND[1] - BAND[0]) / 72
-X0, XW = 0.02, 0.96
-
-
-def _row(fig, y_top_in, h_in):           # inches from the top -> axes rectangle
-    fig_h = fig.get_size_inches()[1]
-    return fig.add_axes([X0, 1 - (y_top_in + h_in) / fig_h, XW, h_in / fig_h])
-
-
-def supply_chain_network(snap, front=None, show_split=True, compact=False,
-                         unused_alpha=1.0, figsize=None):
-    """Chosen route through the full option network for ONE Pareto point.
-    front: the whole front -> adds the locator inset. unused_alpha < 1 dims unchosen nodes."""
-    net = _net_height(compact)
-    total = H['top'] + net + (H['gap'] + H['bar'] + H['labels'] if show_split else 0) \
-        + H['gap'] + H['cb'] + H['labels']
+def supply_chain_network(snap, figsize=None):
+    """Chosen route through the full option network for ONE Pareto point, legend underneath."""
+    net_h, leg_h, cb_h = _net_height(), 0.22, 0.09
+    total = net_h + 0.08 + leg_h + 0.10 + cb_h + 0.34
     fig = plt.figure(figsize=figsize or (W_TEXT, total))
-    y = H['top']
-    ax = _row(fig, y, net)
-    norm = _draw_network(ax, snap, compact, unused_alpha)
-    if front:
-        _draw_locator(ax.inset_axes(LOCATOR['compact' if compact else 'full']), front, snap, compact)
-    y += net
-    if show_split:
-        _draw_sr_bar(_row(fig, y + H['gap'], H['bar']), snap)
-        y += H['gap'] + H['bar'] + H['labels']
-    _risk_colourbar(fig, _row(fig, y + H['gap'], H['cb']), norm)
-    return fig, fig.axes
 
+    def place(top, h, x0=0.0, w=W_TEXT):                            # inches from the top -> axes
+        return fig.add_axes([x0 / W_TEXT, 1 - (top + h) / total, w / W_TEXT, h / total])
 
-def supply_chain_panels(snaps, front=None, figsize=None):
-    """Same layout, several ε in one figure - the structural shifts along the front.
-    snaps: list of snapshot dicts, cheapest first (or whatever order tells the story).
-    The SR split moves into each header; a bar per panel would not fit on one page."""
-    n = len(snaps)
-    block = _net_height(True) + H['gap']
-    total = H['top'] + n * block + H['gap'] + H['cb'] + H['labels']
-    fig = plt.figure(figsize=figsize or (W_TEXT, total))
-    for k, snap in enumerate(snaps):
-        ax = _row(fig, H['top'] + k * block, block - H['gap'])
-        norm = _draw_network(ax, snap, compact=True, split_in_header=True)
-        if front:
-            _draw_locator(ax.inset_axes(LOCATOR['compact']), front, snap, bare=True)
-    _risk_colourbar(fig, _row(fig, H['top'] + n * block + H['gap'], H['cb']), norm)
+    _draw_network(place(0, net_h), snap, net_h)
+    _draw_legend(place(net_h + 0.08, leg_h), snap, leg_h)
+    _risk_colourbar(fig, place(net_h + 0.08 + leg_h + 0.10, cb_h, x0=0.12, w=W_TEXT - 0.24))
     return fig, fig.axes
