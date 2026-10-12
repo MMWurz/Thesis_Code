@@ -5,13 +5,14 @@ import params
 import constraints  
 import supply_risk
 
-from pyomo.environ import (ConcreteModel, Set, Var, Param, Constraint, Binary, NonNegativeReals, Objective, minimize)
+from pyomo.environ import (ConcreteModel, Set, Var, Param, Constraint, Binary, NonNegativeReals, NonNegativeIntegers,
+                           Objective, minimize)
     # model container	m = ConcreteModel()
     # index collections	m.E, m.T, m.L, m.R
 
 # Functions
 def cost_rule(m):
-    return (sum(params.M_e[e] * m.Kcap[e] for e in m.E) +                                       # annualised capital charge
+    return (sum(params.M_e[e] * m.CC[e] for e in m.E) +                                         # annualised capital charge
            sum(params.TC_let[l,e,t] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T) +  # fix transport C
            sum(params.TC_etr[e,t,r] * m.Q_etr[e,t,r] for e in m.E for t in m.T for r in m.R )+  # fix transport C
            sum(params.PC_l[l] * m.Q_let[l,e,t] for l in m.L for e in m.E for t in m.T)+         # extraction&processing feed cost (nat. Li)
@@ -43,15 +44,16 @@ def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = func
     m.T = Set(initialize=p.T)
     m.R = Set(initialize=p.R) 
         # Binary Var
-    m.Y_et = Var(m.E, m.T, domain=Binary)                   # build or not build            # 9x
+    m.Y_et = Var(m.E, m.T, domain=Binary)                   # build or not build
         # Conti Var 
     m.Q_let = Var(m.L,m.E,m.T, domain=NonNegativeReals)     # [kg nat. Li] transport flow    l > et
     m.Q_etr = Var(m.E,m.T,m.R, domain=NonNegativeReals)     # [kg enr. Li] transport flow    et > r
-        # FC Variables --> sort
+        # FC Variables
     m.J    = Set(initialize=range(1, len(p.Qbar)))         # segments 1..4
     m.z    = Var(m.E, m.J, domain=Binary)               # segment j active at site e
     m.q    = Var(m.E, m.J, domain=NonNegativeReals)     # capacity increment inside segment j
-    m.Kcap = Var(m.E, domain=NonNegativeReals)          # [€] capital cost at site e
+    m.CC   = Var(m.E, domain=NonNegativeReals)          # [€] capital cost at site e
+    m.N    = Var(m.E, domain=NonNegativeIntegers)       # further full-size plants at site e (0 at DEMO demand)
         # obj. Fkt
     m.obj_cost = Objective(rule=cost_rule, sense=minimize)
     m.obj_SR   = Objective(rule=supply_risk_rule, sense=minimize)
@@ -67,7 +69,9 @@ def build_model(p, delta=1e-3, r_SR=1.0):                   # build_model = func
     m.c_en_bottom   = Constraint(m.E, m.T,          rule=constraints.enrichment_bottom)
     m.c_seg_one     = Constraint(m.E,      rule=constraints.one_segment_if_built)
     m.c_seg_width   = Constraint(m.E, m.J, rule=constraints.segment_width)
-    m.c_seg_cap     = Constraint(m.E,      rule=constraints.capacity_equals_throughput)
+    m.c_full_built  = Constraint(m.E,      rule=constraints.full_plants_if_built)
+    m.c_seg_flex    = Constraint(m.E,      rule=constraints.flex_plant_within_throughput)
+    m.c_seg_cap     = Constraint(m.E,      rule=constraints.capacity_covers_throughput)
     m.c_seg_cost    = Constraint(m.E,      rule=constraints.capital_cost)
         # AUGMECON (SR -> con)
     m.eps           = Param(initialize=0.0, mutable=True)

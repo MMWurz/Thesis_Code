@@ -1,5 +1,5 @@
 import conversions
-# All model parameters, bounds, and configuration constants (costs, emission factors, capacities, solver settings).
+# All model parameters: sets, demand, capacities, costs and supply-risk data, with units and sources.
 
 # Flow unit/ commodity: kg - either natural or enriched
 
@@ -32,7 +32,6 @@ f_ne = 17.2                            #[kg nat. Li/ kg enr. Li] 90% enrichment
 
 Q_max_enr = D_r1                    #[kg enr. Li/yr] upper flow bound (one link must carry full demand)
 Q_max_nat = f_ne * D_r1             #[kg nat. Li/yr] upper flow bound
-                                    # TODO: have a look at big M - bounds are now 10x tighter after the D_r1 rescale (52_000 -> 5_200)
 
 # Capacities
 # Per-country extraction/processing capacity ceiling (upper bound on total annual outflow from l).
@@ -50,11 +49,10 @@ Cap_e_prod      = 40_000   #[kg/yr enr. product] = Y-12 historical avg
 
 Cap_et_min = {(e,t): f_ne * Cap_e_min_prod for e in E for t in T}   #[kg nat. Li/yr]
 Cap_et     = {(e,t): f_ne * Cap_e_prod     for e in E for t in T}   #[kg nat. Li/yr]
+N_max      = int(D_r1 // Cap_e_prod)                                #[-] most FURTHER full-size plants a site can need (0 at DEMO demand)
 
 # Costs
-#[€] CAPEX FixedCost (Building) per enrichment site; tech-independent placeholder (Day 9)
-      
-K_ref   = 508e6                                     #[€2024] eq:capex_escalation
+CC_ref  = 508e6                                    #[€2024] eq:capex_escalation
 Q_ref   = 200_000                                   #[kg/yr enr. product] Ault large plant
 b_scale = 0.57                                      #[-]  eq:capex_exponent
 n_life  = 30                                        #[yr] plant lifetime
@@ -68,8 +66,8 @@ f_e = {'e_US':1.00, 'e_EU':1.13,                    #[-] location factor, Towler
 CRF_e = {e: conversions.capital_recovery_factor(i_e[e], n_life) for e in E}
 M_e   = {e: (CRF_e[e] + fom) * f_e[e] for e in E}   #[1/yr] tab:FC_multipliers
 Qbar  = conversions.geometric_breakpoints(Cap_e_min_prod, Cap_e_prod, n_seg=4)
-Kbar  = [conversions.capex_power_law(q, K_ref, Q_ref, b_scale) for q in Qbar]
-seg_width, seg_slope = conversions.pwl_segments(Qbar, Kbar)
+CCbar = [conversions.capex_power_law(q, CC_ref, Q_ref, b_scale) for q in Qbar]
+seg_width, seg_slope = conversions.pwl_segments(Qbar, CCbar)
 
 # Transport Costs TC - with TC = c_TC * distance (c_TC = 0.1038 €/(kg nat. Li * 10^3 km))
 TC_le = {('l_Au','e_US'): 1.329,                    #[€/kg nat. Li] tab:TC_let_values
@@ -84,7 +82,6 @@ TC_le = {('l_Au','e_US'): 1.329,                    #[€/kg nat. Li] tab:TC_let
          ('l_Ch','e_EU'): 2.066,
          ('l_Ch','e_Ch'): 0.000,
          ('l_Ch','e_Ru'): 0.291,
-         ('l_Ch','e_Ru'): 0.291,
          ('l_Ar','e_US'): 1.321,      # CERDI 
          ('l_Ar','e_EU'): 1.439,      
          ('l_Ar','e_Ch'): 2.092,      
@@ -95,26 +92,13 @@ TC_le = {('l_Au','e_US'): 1.329,                    #[€/kg nat. Li] tab:TC_let
          ('l_Fr','e_Ru'): 0.371}      #   3_576 km - Med -> Black Sea, the shortest Russian lane of all l
 TC_let = {(l, e, t): TC_le[(l,e)] for l in L for e in E for t in T}   #[€/kg nat. Li] broadcast across technologies (transport is tech-independent)
 
-# --- SUPERSEDED 2026-10-05, kept for the record: flat freight-only TC_etr, uniform across sites ---
-# # Transport Costs TC - enrichment site e to reactor r: freight only, UNIFORM across sites.
-# #   (3600 $/TEU SCFI comprehensive spot + 250 $/container IMDG hazardous cargo surcharge,
-# #    Crowley Tariff 002 Rule 8) / 1.0824 $/EUR / 5200 kg/yr = one surcharged container-equivalent per year.
-# #   No distance term (DEMO site undecided). NO country differentiation: export-licensing and sanctions
-# #   exposure are country-level institutional differences, already priced on the RISK axis via g_enr -
-# #   charging them here too would double-count. A uniform TC_etr is decision-neutral anyway (sum Q_etr = D_r1
-# #   is fixed, so it only adds a constant to C_tot). The country-differentiated premium (EU 50 / US 90 /
-# #   CN 130 / RU 150 EUR/kg) had no published rate behind it and is kept as a SCENARIO, not a base parameter.
-# TC_er_freight = 0.68          #[€/kg enr. Li] (3600 + 250) / 1.0824 / 5200
-# TC_er = {(e, r): TC_er_freight for e in E for r in R}
-# ---------------------------------------------------------------------------------------------------
-
 # Transport Costs TC - enrichment site e to reactor r (Rotterdam): TC_etr = c_TC * d_er * w * phi_haz,
 #   equ_3_TC_etr / tab_3_TC_etr. The product ships as lithium METAL, so the 1/w carried by c_TC drops
 #   out (c_TC * w = 0.0171 €/(kg * 10^3 km)) and phi_haz = (3600+250)/3600 = 1.069 is the IMDG
 #   hazardous-cargo mark-up (Crowley Tariff 002 Rule 8). Distances d_er from CERDI, as in TC_le.
 #   Licensing and sanctions exposure is NOT priced here: it sits on the RISK axis via g_enr, charging
 #   it twice would double-count. The old country-differentiated premium (EU 50 / US 90 / CN 130 /
-#   RU 150 €/kg) has no published rate behind it and is kept as a SCENARIO only.
+#   RU 150 €/kg) had no published rate behind it and was dropped.
 TC_er = {('e_US','r1'): 0.18,   #[€/kg enr. Li] d_er =  9_623 km
          ('e_EU','r1'): 0.00,   #               d_er =      0 km (reactor node = EU port)
          ('e_Ch','r1'): 0.36,   #               d_er = 19_901 km

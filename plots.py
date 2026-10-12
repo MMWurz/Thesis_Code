@@ -1,4 +1,4 @@
-# Visualization: Pareto front plots, supply chain flow diagrams, and sensitivity analysis charts for dual-objective results.
+# Visualization: Pareto front plot and supply chain network figure for the dual-objective results.
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch
@@ -56,8 +56,10 @@ def snapshot(m, eps=None):
     """One solved point as plain floats. Call INSIDE the AUGMECON loop - m is overwritten
     by the next solve. Keeps plotting independent of pyomo and of the solver."""
     L, E, T, R = list(m.L), list(m.E), list(m.T), list(m.R)
+    built = {e: t for e in E for t in T if m.Y_et[e, t].value > 0.5}
     return {
-        'built':   {e: t for e in E for t in T if m.Y_et[e, t].value > 0.5},
+        'built':   built,
+        'plants':  {e: 1 + round(m.N[e].value) for e in built},            # the flexible plant + N_e full-size ones
         'flow_le': {(l, e): q for l in L for e in E                        # [kg nat. Li/yr]
                     if (q := sum(m.Q_let[l, e, t].value for t in T)) > TOL},  # aggregated over t (one t per e)
         'flow_er': {e: q for e in E                                        # [kg enr. Li/yr]

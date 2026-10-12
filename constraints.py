@@ -13,7 +13,7 @@ def flow_activation_rule_2(m,e,t,r):                    # only flow between et a
     return m.Q_etr[e,t,r] <= params.Q_max_enr * m.Y_et[e,t]
     
 # DEMAND - con (Eq. 14)
-def demand_satisfaction(m,r):                           # the demand of the reactor r1 cannot be exceeded
+def demand_satisfaction(m,r):                           # the demand of the reactor r1 must be met
     return params.D_r1 <= sum(m.Q_etr[e,t,r] for e in m.E for t in m.T)
     
 # MATERIAL-BALANCE - con (Eq. 12 & 13)
@@ -25,8 +25,8 @@ def material_balance(m,e,t):                            # all that flows into et
 def extraction_ceiling(m,l):                         
     return sum(m.Q_let[l,e,t] for e in m.E for t in m.T) <= params.Cap_l[l] 
 
-def enrichment_ceiling(m,e,t):
-    return sum(m.Q_let[l,e,t] for l in m.L) <= params.Cap_et[e,t] * m.Y_et[e,t]
+def enrichment_ceiling(m,e,t):                          # Y_et = the plant of flexible size, N_e = further full-size plants
+    return sum(m.Q_let[l,e,t] for l in m.L) <= params.Cap_et[e,t] * (m.Y_et[e,t] + m.N[e])
 
 def enrichment_bottom(m,e,t):
     return sum(m.Q_let[l,e,t] for l in m.L) >= params.Cap_et_min[e,t] * m.Y_et[e,t]
@@ -38,13 +38,22 @@ def one_segment_if_built(m, e):                     # exactly one segment iff a 
 def segment_width(m, e, j):                         # increment cannot exceed its segment
     return m.q[e,j] <= params.seg_width[j-1] * m.z[e,j]
 
-def capacity_equals_throughput(m, e):               # build exactly the capacity you use
-    return (sum(params.Qbar[j-1]*m.z[e,j] + m.q[e,j] for j in m.J)
-            == sum(m.Q_etr[e,t,r] for t in m.T for r in m.R))
+# SEVERAL PLANTS PER SITE: one plant of flexible size (z, q) + N_e further plants of the largest size Qbar[-1].
+# With N_e = 0 the two capacity rules below are one equality again: build exactly the capacity you use.
+def full_plants_if_built(m, e):                     # full-size plants only at a built site
+    return m.N[e] <= params.N_max * sum(m.Y_et[e,t] for t in m.T)
 
-def capital_cost(m, e):                             # PWL evaluation of K(Q)
-    return m.Kcap[e] == sum(params.Kbar[j-1]*m.z[e,j] + params.seg_slope[j-1]*m.q[e,j]
-                            for j in m.J)
+def flex_plant_within_throughput(m, e):             # the flexible plant is never bigger than the output of its site
+    return (sum(params.Qbar[j-1]*m.z[e,j] + m.q[e,j] for j in m.J)
+            <= sum(m.Q_etr[e,t,r] for t in m.T for r in m.R))
+
+def capacity_covers_throughput(m, e):               # all plants of the site together cover its output
+    return (sum(params.Qbar[j-1]*m.z[e,j] + m.q[e,j] for j in m.J) + params.Qbar[-1]*m.N[e]
+            >= sum(m.Q_etr[e,t,r] for t in m.T for r in m.R))
+
+def capital_cost(m, e):                             # PWL evaluation of CC(Q) + N_e plants at the last support point
+    return m.CC[e] == (sum(params.CCbar[j-1]*m.z[e,j] + params.seg_slope[j-1]*m.q[e,j] for j in m.J)
+                       + params.CCbar[-1]*m.N[e])
 
 
 ### NOTES ###
